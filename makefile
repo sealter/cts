@@ -1,19 +1,24 @@
 NAME = cts
 
-GO = go
-GO_GET = $(GO) get
-GO_TEST = $(GO) test -v
-GO_BUILD = $(GO) build -o bin/${NAME}
-
 all: dep test build
 
 dep:
-	-$(GO_GET) ./...
+	-go get -u github.com/golang/dep/cmd/dep
+	-dep ensure
 
 test:
-	$(GO_TEST) ./...
+	for d in $(shell go list ./... | grep -v vendor); do \
+		go test -v $$d || exit 1; \
+	done
+
+cover:
+	echo "" > coverage.txt
+	for d in $(shell go list ./... | grep -v vendor); do \
+		go test -race -coverprofile=profile.out -covermode=atomic $$d || exit 1; \
+		[ -f profile.out ] && cat profile.out >> coverage.txt && rm profile.out; \
+	done
 
 build:
-	$(GO_BUILD)
+	go build -o bin/${NAME}
 
 .PHONY: all dep test build
