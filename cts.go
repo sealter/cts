@@ -2,8 +2,11 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
+	"time"
 
+	"github.com/modood/cts/gateio"
 	"github.com/urfave/cli"
 )
 
@@ -24,7 +27,19 @@ func main() {
 		},
 	}
 	app.Action = func(c *cli.Context) error {
-		fmt.Println("doing")
+		for {
+			// TODO
+			btc, err := gateio.Ticker("btc_usdt")
+			if err != nil {
+				return err
+			}
+
+			log.Println(
+				fmt.Sprintf("BTC/USDT $%f, 24h Change: %f%%",
+					btc.Last, btc.PercentChange))
+
+			time.Sleep(time.Second * 10)
+		}
 		return nil
 	}
 
