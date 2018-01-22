@@ -15,14 +15,14 @@ import (
 type (
 	Pair struct {
 		Result        string  // 请求响应状态
-		PercentChange float32 // 涨跌百分比
-		Last          float32 // 最新成交价
-		LowestAsk     float32 // 卖方最低价
-		HighestBid    float32 // 买方最高价
-		BaseVolume    float32 // 交易量
-		QuoteVolume   float32 // 兑换货币交易量
-		High24hr      float32 // 24 小时最高价
-		Low24hr       float32 // 24 小时最低价
+		PercentChange float64 // 涨跌百分比
+		Last          float64 // 最新成交价
+		LowestAsk     float64 // 卖方最低价
+		HighestBid    float64 // 买方最高价
+		BaseVolume    float64 // 交易量
+		QuoteVolume   float64 // 兑换货币交易量
+		High24hr      float64 // 24 小时最高价
+		Low24hr       float64 // 24 小时最低价
 	}
 
 	gateioError struct {
