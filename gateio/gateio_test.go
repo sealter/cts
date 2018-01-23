@@ -59,3 +59,11 @@ func TestSell(t *testing.T) {
 		So(err, ShouldNotBeNil)
 	})
 }
+
+func TestCancel(t *testing.T) {
+	Convey("should cancel unsuccessfully", t, func() {
+		Init("key", "secret")
+		err := Cancel("doge_usdt", CancelTypeAll)
+		So(err, ShouldNotBeNil)
+	})
+}

@@ -41,7 +41,10 @@ type (
 		// Response:
 		// true		success
 		// false	fail
-		Result string
+		//
+		// Result 有可能是字符串 "true"，也有可能是布尔值 true
+		// cancelAllOrders 接口会返回布尔值
+		Result interface{}
 
 		// Error code:
 		// 0	Success
@@ -74,6 +77,12 @@ var (
 
 	key    string // your api key
 	secret string // your secret key
+)
+
+const (
+	CancelTypeSell = 0
+	CancelTypeBuy  = 1
+	CancelTypeAll  = -1
 )
 
 // Init set apikey and secretkey
@@ -173,6 +182,19 @@ func Sell(currency string, price float64, amount float64) (*Trade, error) {
 	return &t, nil
 }
 
+// Cancel cancel all orders
+func Cancel(currency string, cancelType int8) error {
+	params := fmt.Sprintf("currencyPair=%s&type=%d", currency, cancelType)
+	url := "https://api.gate.io/api2/1/private/cancelAllOrders"
+
+	bs, err := req("POST", url, params)
+	if err := gateioErrorHandle(bs, err); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func sign(params string) (string, error) {
 	key := []byte(secret)
 
@@ -226,7 +248,7 @@ func gateioErrorHandle(bs []byte, err error) error {
 		return err
 	}
 
-	if e.Result == "false" {
+	if e.Code != 0 {
 		return errors.New(fmt.Sprintf("Code: %d, %s", e.Code, e.Message))
 	}
 
