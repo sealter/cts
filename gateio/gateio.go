@@ -84,6 +84,9 @@ func GetPairs() ([]string, error) {
 	var l []string
 	err = json.Unmarshal(bs, &l)
 	if err != nil {
+		if err := gateioErrorHandle(bs, nil); err != nil {
+			return nil, err
+		}
 		return nil, err
 	}
 
@@ -95,18 +98,8 @@ func GetPairs() ([]string, error) {
 func Ticker(ticker string) (*Pair, error) {
 	bs, err := req("GET",
 		fmt.Sprintf("http://data.gate.io/api2/1/ticker/%s", ticker), "")
-	if err != nil {
+	if err := gateioErrorHandle(bs, err); err != nil {
 		return nil, err
-	}
-
-	e := gateioError{}
-	err = json.Unmarshal(bs, &e)
-	if err != nil {
-		return nil, err
-	}
-	if e.Result == "false" {
-		return nil, errors.New(
-			fmt.Sprintf("Code: %d, %s", e.Code, e.Message))
 	}
 
 	p := Pair{}
@@ -121,18 +114,8 @@ func Ticker(ticker string) (*Pair, error) {
 // MyBalance return account balances
 func MyBalance() (*Balance, error) {
 	bs, err := req("POST", "https://api.gate.io/api2/1/private/balances", "")
-	if err != nil {
+	if err := gateioErrorHandle(bs, err); err != nil {
 		return nil, err
-	}
-
-	e := gateioError{}
-	err = json.Unmarshal(bs, &e)
-	if err != nil {
-		return nil, err
-	}
-	if e.Result == "false" {
-		return nil, errors.New(
-			fmt.Sprintf("Code: %d, %s", e.Code, e.Message))
 	}
 
 	b := Balance{}
@@ -140,6 +123,7 @@ func MyBalance() (*Balance, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &b, nil
 }
 
@@ -182,4 +166,23 @@ func req(method string, url string, param string) ([]byte, error) {
 	}
 
 	return bs, nil
+}
+
+func gateioErrorHandle(bs []byte, err error) error {
+	if err != nil {
+		return err
+	}
+
+	e := gateioError{}
+
+	err = json.Unmarshal(bs, &e)
+	if err != nil {
+		return err
+	}
+
+	if e.Result == "false" {
+		return errors.New(fmt.Sprintf("Code: %d, %s", e.Code, e.Message))
+	}
+
+	return nil
 }
