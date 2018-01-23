@@ -30,7 +30,7 @@ type (
 		Low24hr       float64 // 24 小时最低价
 	}
 
-	BuyResponse struct {
+	Trade struct {
 		Result  string
 		Code    int32
 		Message string
@@ -136,7 +136,7 @@ func MyBalance() (*Balance, error) {
 }
 
 // Buy place order buy
-func Buy(currency string, price float64, amount float64) (*BuyResponse, error) {
+func Buy(currency string, price float64, amount float64) (*Trade, error) {
 	params := fmt.Sprintf("currencyPair=%s&rate=%f&amount=%f",
 		currency, price, amount)
 
@@ -145,13 +145,32 @@ func Buy(currency string, price float64, amount float64) (*BuyResponse, error) {
 		return nil, err
 	}
 
-	b := BuyResponse{}
-	err = json.Unmarshal(bs, &b)
+	t := Trade{}
+	err = json.Unmarshal(bs, &t)
 	if err != nil {
 		return nil, err
 	}
 
-	return &b, nil
+	return &t, nil
+}
+
+// Sell place order sell
+func Sell(currency string, price float64, amount float64) (*Trade, error) {
+	params := fmt.Sprintf("currencyPair=%s&rate=%f&amount=%f",
+		currency, price, amount)
+
+	bs, err := req("POST", "https://api.gate.io/api2/1/private/sell", params)
+	if err := gateioErrorHandle(bs, err); err != nil {
+		return nil, err
+	}
+
+	t := Trade{}
+	err = json.Unmarshal(bs, &t)
+	if err != nil {
+		return nil, err
+	}
+
+	return &t, nil
 }
 
 func sign(params string) (string, error) {

@@ -51,3 +51,11 @@ func TestBuy(t *testing.T) {
 		So(err, ShouldNotBeNil)
 	})
 }
+
+func TestSell(t *testing.T) {
+	Convey("should buy unsuccessfully", t, func() {
+		Init("key", "secret")
+		_, err := Sell("doge_usdt", 10000, 0.001)
+		So(err, ShouldNotBeNil)
+	})
+}
