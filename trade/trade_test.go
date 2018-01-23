@@ -10,7 +10,15 @@ import (
 func TestPosition(t *testing.T) {
 	Convey("should get position unsuccessfully", t, func(c C) {
 		gateio.Init("key", "secret")
-		_, err := Position()
+		_, _, err := Position()
+		So(err, ShouldNotBeNil)
+	})
+}
+
+func TestAllIn(t *testing.T) {
+	Convey("should all in unsuccessfully", t, func(c C) {
+		gateio.Init("key", "secret")
+		err := AllIn("btc_usdt")
 		So(err, ShouldNotBeNil)
 	})
 }
