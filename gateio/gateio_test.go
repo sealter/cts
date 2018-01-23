@@ -37,9 +37,17 @@ func TestTicker(t *testing.T) {
 }
 
 func TestMyBalance(t *testing.T) {
-	Convey("should return balances", t, func() {
+	Convey("should return balances unsuccessfully", t, func() {
 		Init("key", "secret")
 		_, err := MyBalance()
+		So(err, ShouldNotBeNil)
+	})
+}
+
+func TestBuy(t *testing.T) {
+	Convey("should buy unsuccessfully", t, func() {
+		Init("key", "secret")
+		_, err := Buy("doge_usdt", 0.002, 5000)
 		So(err, ShouldNotBeNil)
 	})
 }

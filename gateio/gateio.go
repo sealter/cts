@@ -14,12 +14,12 @@ import (
 
 type (
 	Balance struct {
-		Result    string            // 请求响应状态
+		Result    string
 		Available map[string]string // 可用
 		Locked    map[string]string // 已锁定
 	}
 	Pair struct {
-		Result        string  // 请求响应状态
+		Result        string
 		PercentChange float64 // 涨跌百分比
 		Last          float64 // 最新成交价
 		LowestAsk     float64 // 卖方最低价
@@ -30,6 +30,13 @@ type (
 		Low24hr       float64 // 24 小时最低价
 	}
 
+	BuyResponse struct {
+		Result  string
+		Code    int32
+		Message string
+		OrderID uint64 `json:"orderNumber"` // 订单 ID
+	}
+
 	gateioError struct {
 		// Response:
 		// true		success
@@ -37,6 +44,7 @@ type (
 		Result string
 
 		// Error code:
+		// 0	Success
 		// 1	Invalid request
 		// 2	Invalid version
 		// 3	Invalid request
@@ -95,9 +103,9 @@ func GetPairs() ([]string, error) {
 
 // Ticker returns the current ticker for the selected currency,
 // cached in 10 seconds.
-func Ticker(ticker string) (*Pair, error) {
+func Ticker(currency string) (*Pair, error) {
 	bs, err := req("GET",
-		fmt.Sprintf("http://data.gate.io/api2/1/ticker/%s", ticker), "")
+		fmt.Sprintf("http://data.gate.io/api2/1/ticker/%s", currency), "")
 	if err := gateioErrorHandle(bs, err); err != nil {
 		return nil, err
 	}
@@ -119,6 +127,25 @@ func MyBalance() (*Balance, error) {
 	}
 
 	b := Balance{}
+	err = json.Unmarshal(bs, &b)
+	if err != nil {
+		return nil, err
+	}
+
+	return &b, nil
+}
+
+// Buy place order buy
+func Buy(currency string, price float64, amount float64) (*BuyResponse, error) {
+	params := fmt.Sprintf("currencyPair=%s&rate=%f&amount=%f",
+		currency, price, amount)
+
+	bs, err := req("POST", "https://api.gate.io/api2/1/private/buy", params)
+	if err := gateioErrorHandle(bs, err); err != nil {
+		return nil, err
+	}
+
+	b := BuyResponse{}
 	err = json.Unmarshal(bs, &b)
 	if err != nil {
 		return nil, err
