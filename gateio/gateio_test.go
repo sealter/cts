@@ -35,3 +35,11 @@ func TestTicker(t *testing.T) {
 		So(err, ShouldNotBeNil)
 	})
 }
+
+func TestMyBalance(t *testing.T) {
+	Convey("should return balances", t, func() {
+		Init("key", "secret")
+		_, err := MyBalance()
+		So(err, ShouldNotBeNil)
+	})
+}

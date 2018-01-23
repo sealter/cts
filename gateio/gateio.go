@@ -13,6 +13,11 @@ import (
 )
 
 type (
+	Balance struct {
+		Result    string            // 请求响应状态
+		Available map[string]string // 可用
+		Locked    map[string]string // 已锁定
+	}
 	Pair struct {
 		Result        string  // 请求响应状态
 		PercentChange float64 // 涨跌百分比
@@ -111,6 +116,31 @@ func Ticker(ticker string) (*Pair, error) {
 	}
 
 	return &p, nil
+}
+
+// MyBalance return account balances
+func MyBalance() (*Balance, error) {
+	bs, err := req("POST", "https://api.gate.io/api2/1/private/balances", "")
+	if err != nil {
+		return nil, err
+	}
+
+	e := gateioError{}
+	err = json.Unmarshal(bs, &e)
+	if err != nil {
+		return nil, err
+	}
+	if e.Result == "false" {
+		return nil, errors.New(
+			fmt.Sprintf("Code: %d, %s", e.Code, e.Message))
+	}
+
+	b := Balance{}
+	err = json.Unmarshal(bs, &b)
+	if err != nil {
+		return nil, err
+	}
+	return &b, nil
 }
 
 func sign(params string) (string, error) {
