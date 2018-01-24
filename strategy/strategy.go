@@ -1,33 +1,43 @@
 package strategy
 
-import (
-	"github.com/modood/cts/gateio"
-)
-
 const (
 	SIG_NONE = iota // none
 	SIG_RISE        // going up
 	SIG_FALL        // going down
 )
 
-// RippleDoge is a simple strategy refers to ripple and doge
-func RippleDoge() (uint8, error) {
-	doge, err := gateio.Ticker("doge_usdt")
-	if err != nil {
-		return SIG_NONE, err
+// Strategy is trading strategy
+type Strategy interface {
+	Name() string
+	Signal() (uint8, error)
+}
+
+// Strategies return all available strategy
+func Strategies() map[string]Strategy {
+	ripdog := RippleDoge{}
+
+	return map[string]Strategy{
+		ripdog.Name(): &ripdog,
+	}
+}
+
+// Available return all available strategy name
+func Available() []string {
+	m := Strategies()
+	keys := make([]string, 0, len(m))
+
+	for k := range m {
+		keys = append(keys, k)
 	}
 
-	xrp, err := gateio.Ticker("xrp_usdt")
-	if err != nil {
-		return SIG_NONE, err
-	}
+	return keys
+}
 
-	if doge.PercentChange > 5 && xrp.PercentChange > 5 {
-		return SIG_RISE, nil
+// Signals return all available signal
+func Signals() []uint8 {
+	return []uint8{
+		SIG_NONE,
+		SIG_RISE,
+		SIG_FALL,
 	}
-	if doge.PercentChange < -5 && xrp.PercentChange < -5 {
-		return SIG_FALL, nil
-	}
-
-	return SIG_NONE, nil
 }

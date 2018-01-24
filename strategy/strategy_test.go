@@ -6,17 +6,27 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestRippleDoge(t *testing.T) {
-	Convey("should check ripple and doge successfully", t, func(c C) {
-		ch := make(chan uint8)
+func TestStrategies(t *testing.T) {
+	Convey("should return all available strategy", t, func() {
+		m := Strategies()
 
-		go func() {
-			sig, err := RippleDoge()
-			c.So(err, ShouldBeNil)
-			ch <- sig
-			close(ch)
-		}()
+		ripdog, ok := m["ripdog"]
+		So(ok, ShouldBeTrue)
+		So(ripdog.Name(), ShouldEqual, "ripdog")
+		So(ripdog.(*RippleDoge), ShouldHaveSameTypeAs, &RippleDoge{})
+	})
+}
 
-		c.So([]uint8{SIG_NONE, SIG_RISE, SIG_FALL}, ShouldContain, <-ch)
+func TestAvailable(t *testing.T) {
+	Convey("should return all available strategy name", t, func() {
+		s := Available()
+		So(s, ShouldNotBeEmpty)
+	})
+}
+
+func TestSignals(t *testing.T) {
+	Convey("should return all available signal", t, func() {
+		s := Signals()
+		So(s, ShouldNotBeEmpty)
 	})
 }
