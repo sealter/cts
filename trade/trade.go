@@ -62,6 +62,11 @@ func AllIn(currency string) error {
 		return err
 	}
 
+	err = gateio.Cancel(currency, gateio.CancelTypeAll)
+	if err != nil {
+		return err
+	}
+
 	amount := (usdt - 1) / pair.Last
 
 	log.Println("buying", currency, pair.Last, amount)
@@ -86,6 +91,11 @@ func AllOut(currency, coin string) error {
 	}
 
 	pair, err := gateio.Ticker(currency)
+	if err != nil {
+		return err
+	}
+
+	err = gateio.Cancel(currency, gateio.CancelTypeAll)
 	if err != nil {
 		return err
 	}
