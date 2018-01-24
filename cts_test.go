@@ -8,7 +8,24 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestFlush(t *testing.T) {
+func TestSignal(t *testing.T) {
+	Convey("should refresh balance cache unsuccessfully", t, func(c C) {
+		sl := strategy.Available()
+
+		for _, v := range sl {
+			sig, err := signal(v)
+			So(err, ShouldBeNil)
+			So(strategy.Signals(), ShouldContain, sig)
+		}
+
+		sig, err := signal("xxxxxx")
+		So(err, ShouldNotBeNil)
+		So(sig, ShouldEqual, strategy.SIG_NONE)
+
+	})
+}
+
+func TestExec(t *testing.T) {
 	Convey("should refresh balance cache unsuccessfully", t, func(c C) {
 		gateio.Init("apikey", "secretkey")
 		var err error

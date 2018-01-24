@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -12,6 +14,8 @@ import (
 	"github.com/urfave/cli"
 )
 
+var strategies = strategy.Strategies()
+
 func main() {
 	app := cli.NewApp()
 	app.Name = "cts"
@@ -22,6 +26,10 @@ func main() {
 		cli.StringFlag{
 			Name:  "currency",
 			Usage: "currency name, base currency should be usdt(e.g., btc_usdt, xrp_usdt, etc.)",
+		},
+		cli.StringFlag{
+			Name:  "strategy",
+			Usage: "strategy name. available: " + strings.Join(strategy.Available(), ", "),
 		},
 		cli.StringFlag{
 			Name:  "key",
@@ -49,7 +57,7 @@ func action(c *cli.Context) error {
 			continue
 		}
 
-		sig, err := strategy.RippleDoge()
+		sig, err := signal(c.String("strategy"))
 		if err != nil {
 			log.Println(err)
 			continue
@@ -62,6 +70,21 @@ func action(c *cli.Context) error {
 		}
 	}
 	return nil
+}
+
+func signal(stra string) (uint8, error) {
+	s, ok := strategies[stra]
+	if !ok {
+		return strategy.SIG_NONE,
+			errors.New(fmt.Sprintf("unknown strategy: %s", stra))
+	}
+
+	sig, err := s.Signal()
+	if err != nil {
+		return strategy.SIG_NONE, err
+	}
+
+	return sig, nil
 }
 
 func exec(signal uint8, currency string) error {
