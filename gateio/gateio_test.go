@@ -44,6 +44,22 @@ func TestMyBalance(t *testing.T) {
 	})
 }
 
+func TestMyAsset(t *testing.T) {
+	Convey("should return assets unsuccessfully", t, func() {
+		Init("key", "secret")
+		_, err := MyAsset()
+		So(err, ShouldNotBeNil)
+	})
+}
+
+func TestRate(t *testing.T) {
+	Convey("should return rate successfully", t, func() {
+		r, err := Rate()
+		So(err, ShouldBeNil)
+		So(r, ShouldBeGreaterThan, 0)
+	})
+}
+
 func TestBuy(t *testing.T) {
 	Convey("should buy unsuccessfully", t, func() {
 		Init("key", "secret")

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 
 	jsoniter "github.com/json-iterator/go"
@@ -18,6 +19,13 @@ type (
 		Available map[string]string // 可用
 		Locked    map[string]string // 已锁定
 	}
+
+	Asset struct {
+		Balance  float64
+		Total    float64
+		TotalCNY float64
+	}
+
 	Pair struct {
 		Result        string
 		PercentChange float64 // 涨跌百分比
@@ -154,6 +162,64 @@ func MyBalance() (*Balance, error) {
 	}
 
 	return &b, nil
+}
+
+// MyAsset return account assets
+func MyAsset() (*Asset, error) {
+	b, err := MyBalance()
+	if err != nil {
+		return nil, err
+	}
+
+	a := Asset{}
+	for k, v := range b.Available {
+		n, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		if k == "USDT" {
+			a.Balance = n
+			a.Total += n
+		} else {
+			t, err := Ticker(strings.ToLower(k) + "_usdt")
+			if err != nil {
+				return nil, err
+			}
+
+			a.Total += t.Last * n
+		}
+	}
+
+	r, err := Rate()
+	if err != nil {
+		return nil, err
+	}
+
+	a.TotalCNY = r * a.Total
+
+	return &a, nil
+}
+
+// Rate return exchange rate of USD/CNY
+func Rate() (float64, error) {
+	bs, err := req("GET", "http://data.gate.io/api2/1/ticker/usdt_cny", "")
+	if err := gateioErrorHandle(bs, err); err != nil {
+		return 0, err
+	}
+
+	p := struct{ Last string }{}
+	err = json.Unmarshal(bs, &p)
+	if err != nil {
+		return 0, err
+	}
+
+	f, err := strconv.ParseFloat(p.Last, 64)
+	if err != nil {
+		return 0, err
+	}
+
+	return f, nil
 }
 
 // Buy place order buy
