@@ -16,3 +16,6 @@ bin
 
 # Coverage
 coverage.txt
+
+# Certificates
+ca-certificates.crt
