@@ -1,4 +1,4 @@
-package ding
+package dingtalk
 
 import (
 	"bytes"
