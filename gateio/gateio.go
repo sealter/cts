@@ -38,14 +38,15 @@ type (
 	}
 
 	Order struct {
-		ID        string `json:"id"`
-		OrderID   uint64 `json:"orderid"`
+		TradeID   string `json:"tradeID"`
+		OrderID   string `json:"orderNumber"`
 		Currency  string `json:"pair"`
 		Type      string
-		Rate      float64
-		Amount    float64
-		Time      string
-		Timestamp uint32 `json:"time_unix"`
+		Rate      string
+		Amount    string
+		Total     float64
+		Date      string
+		Timestamp string `json:"time_unix"`
 	}
 
 	gateioError struct {
