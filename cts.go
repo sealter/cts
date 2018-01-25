@@ -50,7 +50,7 @@ func main() {
 }
 
 func action(c *cli.Context) error {
-	log.Println("starting...")
+	log.Println("running...")
 
 	gateio.Init(c.String("key"), c.String("secret"))
 	dingtalk.Init(c.String("dingtoken"))
@@ -111,7 +111,7 @@ func exec(signal uint8, currency string) error {
 	case strategy.SIG_NONE:
 		fallthrough
 	default:
-		log.Println("do nothing")
+		// do nothing
 	}
 	return nil
 }
