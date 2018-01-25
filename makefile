@@ -21,4 +21,8 @@ cover:
 build:
 	go build -o bin/${NAME}
 
-.PHONY: all dep test build
+release:
+	CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o bin/${NAME}
+	cp /etc/ssl/certs/ca-certificates.crt ca-certificates.crt
+
+.PHONY: all dep test cover build release
