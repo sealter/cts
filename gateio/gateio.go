@@ -37,6 +37,17 @@ type (
 		OrderID uint64 `json:"orderNumber"` // 订单 ID
 	}
 
+	Order struct {
+		ID        string `json:"id"`
+		OrderID   uint64 `json:"orderid"`
+		Currency  string `json:"pair"`
+		Type      string
+		Rate      float64
+		Amount    float64
+		Time      string
+		Timestamp uint32 `json:"time_unix"`
+	}
+
 	gateioError struct {
 		// Response:
 		// true		success
@@ -188,11 +199,32 @@ func Cancel(currency string, cancelType int8) error {
 	url := "https://api.gate.io/api2/1/private/cancelAllOrders"
 
 	bs, err := req("POST", url, params)
+	err = gateioErrorHandle(bs, err)
+
+	return err
+}
+
+// LatestOrder return latest order of my last 24h trades
+func LatestOrder(currency string) (*Order, error) {
+	url := "https://api.gate.io/api2/1/private/tradeHistory"
+	bs, err := req("POST", url, "currencyPair="+currency)
+	err = gateioErrorHandle(bs, err)
 	if err := gateioErrorHandle(bs, err); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	r := struct{ Trades []*Order }{}
+
+	err = json.Unmarshal(bs, &r)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(r.Trades) != 0 {
+		return r.Trades[0], nil
+	}
+
+	return &Order{}, nil
 }
 
 func sign(params string) (string, error) {

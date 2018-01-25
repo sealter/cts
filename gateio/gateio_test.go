@@ -67,3 +67,11 @@ func TestCancel(t *testing.T) {
 		So(err, ShouldNotBeNil)
 	})
 }
+
+func TestLatestOrder(t *testing.T) {
+	Convey("should return latest order unsuccessfully", t, func() {
+		Init("key", "secret")
+		_, err := LatestOrder("doge_usdt")
+		So(err, ShouldNotBeNil)
+	})
+}
