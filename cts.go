@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/modood/cts/dingtalk"
 	"github.com/modood/cts/gateio"
 	"github.com/modood/cts/strategy"
 	"github.com/modood/cts/trade"
@@ -39,6 +40,10 @@ func main() {
 			Name:  "secret",
 			Usage: "your secret key",
 		},
+		cli.StringFlag{
+			Name:  "dingtoken",
+			Usage: "your access token of dingtalk group chat robot",
+		},
 	}
 	app.Action = action
 	app.Run(os.Args)
@@ -46,24 +51,28 @@ func main() {
 
 func action(c *cli.Context) error {
 	log.Println("starting...")
+
 	gateio.Init(c.String("key"), c.String("secret"))
+	dingtalk.Init(c.String("dingtoken"))
+	currency := c.String("currency")
+	stra := c.String("strategy")
 
 	for {
 		time.Sleep(time.Second * 1)
 
-		err := trade.Flush()
+		err := trade.Flush(currency)
 		if err != nil {
 			log.Println(err)
 			continue
 		}
 
-		sig, err := signal(c.String("strategy"))
+		sig, err := signal(stra)
 		if err != nil {
 			log.Println(err)
 			continue
 		}
 
-		err = exec(sig, c.String("currency"))
+		err = exec(sig, currency)
 		if err != nil {
 			log.Println(err)
 			continue
@@ -95,8 +104,7 @@ func exec(signal uint8, currency string) error {
 			return err
 		}
 	case strategy.SIG_FALL:
-		coin := strings.ToUpper(strings.Split(currency, "_")[0])
-		err := trade.AllOut(currency, coin)
+		err := trade.AllOut(currency)
 		if err != nil {
 			return err
 		}

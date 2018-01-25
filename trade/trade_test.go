@@ -10,7 +10,7 @@ import (
 func TestFlush(t *testing.T) {
 	Convey("should refresh balance cache unsuccessfully", t, func(c C) {
 		gateio.Init("key", "secret")
-		err := Flush()
+		err := Flush("btc_usdt")
 		So(err, ShouldNotBeNil)
 	})
 }
@@ -34,7 +34,7 @@ func TestAllIn(t *testing.T) {
 func TestAllOut(t *testing.T) {
 	Convey("should all out unsuccessfully", t, func(c C) {
 		gateio.Init("key", "secret")
-		err := AllOut("btc_usdt", "BTC")
+		err := AllOut("btc_usdt")
 		So(err, ShouldNotBeNil)
 	})
 }

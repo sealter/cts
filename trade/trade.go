@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
+	"time"
 
+	"github.com/modood/cts/dingtalk"
 	"github.com/modood/cts/gateio"
 )
 
@@ -16,15 +19,35 @@ const (
 )
 
 var balance *gateio.Balance
+var order *gateio.Order = &gateio.Order{}
 
 // Flush refresh balance cache
-func Flush() error {
+func Flush(currency string) error {
 	b, err := gateio.MyBalance()
 	if err != nil {
 		return err
 	}
 
 	balance = b
+
+	// check latest deal
+	o, err := gateio.LatestOrder(currency)
+	if err != nil {
+		// do nothing
+	} else if o.OrderID != order.OrderID {
+		if order.OrderID != "" {
+			// have new deal
+			text, err := message(o)
+			if err != nil {
+				// do nothing
+			}
+			err = dingtalk.Push(text)
+			if err != nil {
+				// do nothing
+			}
+		}
+		order = o
+	}
 
 	return nil
 }
@@ -76,7 +99,7 @@ func AllIn(currency string) error {
 }
 
 // AllOut all out
-func AllOut(currency, coin string) error {
+func AllOut(currency string) error {
 	p, err := Position()
 	if err != nil {
 		return err
@@ -85,7 +108,7 @@ func AllOut(currency, coin string) error {
 		return nil
 	}
 
-	amount, err := carry(coin)
+	amount, err := carry(currency)
 	if err != nil {
 		return err
 	}
@@ -106,12 +129,15 @@ func AllOut(currency, coin string) error {
 	return err
 }
 
-func carry(coin string) (float64, error) {
-	if balance == nil {
-		err := Flush()
+func carry(currency string) (float64, error) {
+	coin := currency
+	if coin != "USDT" {
+		coin = strings.ToUpper(strings.Split(currency, "_")[0])
+	}
 
-		if err != nil {
-			return None, err
+	if balance == nil {
+		if err := Flush(currency); err != nil {
+			return 0, err
 		}
 	}
 
@@ -126,4 +152,22 @@ func carry(coin string) (float64, error) {
 	}
 
 	return f, nil
+}
+
+func message(o *gateio.Order) (string, error) {
+	a, err := gateio.MyAsset()
+	if err != nil {
+		return "", err
+	}
+
+	return strconv.Itoa(time.Now().Year()) + "-" + o.Date +
+		"\n订单：" + o.OrderID +
+		"\n类型：" + o.Type +
+		"\n品种：" + o.Currency +
+		"\n数量：" + o.Amount +
+		"\n价格：$" + o.Rate +
+		"\n金额：$" + strconv.FormatFloat(o.Total, 'f', 2, 64) +
+		"\n余额：$" + strconv.FormatFloat(a.Balance, 'f', 2, 64) +
+		"\n资金：$" + strconv.FormatFloat(a.Total, 'f', 2, 64) +
+		"\n合计：¥" + strconv.FormatFloat(a.TotalCNY, 'f', 2, 64), nil
 }
