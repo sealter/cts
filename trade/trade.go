@@ -34,7 +34,7 @@ func Flush(currency string) error {
 	o, err := gateio.LatestOrder(currency)
 	if err != nil {
 		// do nothing
-	} else if o.OrderID != order.OrderID {
+	} else if o.OrderID != "" && o.OrderID != order.OrderID {
 		if order.OrderID != "" {
 			// have new deal
 			text, err := message(o)
@@ -90,8 +90,7 @@ func AllIn(currency string) error {
 		return err
 	}
 
-	// amount := (usdt - 1) / pair.Last
-	amount := 20 / pair.Last
+	amount := (usdt - 1) / pair.Last
 	_ = usdt
 
 	log.Println("buying", currency, pair.Last, amount)
