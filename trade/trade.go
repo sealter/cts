@@ -90,11 +90,11 @@ func AllIn(currency string) error {
 		return err
 	}
 
-	amount := (usdt - 1) / pair.Last
+	amount := (usdt - 1) / pair.HighestBid
 	_ = usdt
 
-	log.Println("buying", currency, pair.Last, amount)
-	_, err = gateio.Buy(currency, pair.Last, amount)
+	log.Println("buying", currency, pair.HighestBid, amount)
+	_, err = gateio.Buy(currency, pair.HighestBid, amount)
 
 	return err
 }
@@ -124,8 +124,8 @@ func AllOut(currency string) error {
 		return err
 	}
 
-	log.Println("selling", currency, pair.Last, amount)
-	_, err = gateio.Sell(currency, pair.Last, amount)
+	log.Println("selling", currency, pair.LowestAsk, amount)
+	_, err = gateio.Sell(currency, pair.LowestAsk, amount)
 
 	return err
 }
