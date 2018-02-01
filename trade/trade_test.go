@@ -18,7 +18,7 @@ func TestFlush(t *testing.T) {
 func TestPosition(t *testing.T) {
 	Convey("should get position unsuccessfully", t, func(c C) {
 		gateio.Init("key", "secret")
-		_, err := Position()
+		_, err := Position("btc_usdt")
 		So(err, ShouldNotBeNil)
 	})
 }

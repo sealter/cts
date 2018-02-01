@@ -1,8 +1,6 @@
 package trade
 
 import (
-	"errors"
-	"fmt"
 	"log"
 	"strconv"
 	"strings"
@@ -12,6 +10,7 @@ import (
 	"github.com/modood/cts/gateio"
 )
 
+// Status
 const (
 	None  = -1 // 未知
 	Empty = 0  // 空仓
@@ -53,21 +52,26 @@ func Flush(currency string) error {
 }
 
 // Position return my open interest status
-func Position() (int8, error) {
-	usdt, err := carry("USDT")
+func Position(currency string) (int8, error) {
+	amount, err := carry(currency)
 	if err != nil {
 		return None, err
 	}
 
-	if usdt > 10 {
-		return Empty, nil
+	pair, err := gateio.Ticker(currency)
+	if err != nil {
+		return None, err
 	}
-	return Full, nil
+
+	if amount*pair.Last > 10 {
+		return Full, nil
+	}
+	return Empty, nil
 }
 
-// Allin all in
+// AllIn all in
 func AllIn(currency string) error {
-	p, err := Position()
+	p, err := Position(currency)
 	if err != nil {
 		return err
 	}
@@ -101,7 +105,7 @@ func AllIn(currency string) error {
 
 // AllOut all out
 func AllOut(currency string) error {
-	p, err := Position()
+	p, err := Position(currency)
 	if err != nil {
 		return err
 	}
@@ -144,7 +148,7 @@ func carry(currency string) (float64, error) {
 
 	str, ok := balance.Available[coin]
 	if !ok {
-		return 0, errors.New(fmt.Sprintf("have no %s", coin))
+		return 0, nil
 	}
 
 	f, err := strconv.ParseFloat(str, 64)
