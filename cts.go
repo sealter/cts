@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -58,7 +57,7 @@ func action(c *cli.Context) error {
 	stra := c.String("strategy")
 
 	for {
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Second * 5)
 
 		err := trade.Flush(currency)
 		if err != nil {
@@ -84,8 +83,7 @@ func action(c *cli.Context) error {
 func signal(stra string) (uint8, error) {
 	s, ok := strategies[stra]
 	if !ok {
-		return strategy.SIG_NONE,
-			errors.New(fmt.Sprintf("unknown strategy: %s", stra))
+		return strategy.SIG_NONE, fmt.Errorf("unknown strategy: %s", stra)
 	}
 
 	sig, err := s.Signal()
