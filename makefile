@@ -23,7 +23,6 @@ build:
 
 release:
 	CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o bin/${NAME}
-	cp /etc/ssl/certs/ca-certificates.crt ca-certificates.crt
 	sudo docker build -t modood/cts .
 	sudo docker push modood/cts
 
