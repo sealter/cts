@@ -53,6 +53,11 @@ func Flush(currency string) error {
 
 // Position return my open interest status
 func Position(currency string) (int8, error) {
+	usdt, err := carry("USDT")
+	if err != nil {
+		return None, err
+	}
+
 	amount, err := carry(currency)
 	if err != nil {
 		return None, err
@@ -63,18 +68,26 @@ func Position(currency string) (int8, error) {
 		return None, err
 	}
 
-	if amount*pair.Last > 10 {
+	if usdt < 10 {
 		return Full, nil
+	} else if amount*pair.Last < 10 {
+		return Empty, nil
 	}
-	return Empty, nil
+	return None, nil
 }
 
 // AllIn all in
 func AllIn(currency string) error {
+	err := gateio.Cancel(currency, gateio.CancelTypeAll)
+	if err != nil {
+		return err
+	}
+
 	p, err := Position(currency)
 	if err != nil {
 		return err
 	}
+
 	if p == Full {
 		return nil
 	}
@@ -89,15 +102,9 @@ func AllIn(currency string) error {
 		return err
 	}
 
-	err = gateio.Cancel(currency, gateio.CancelTypeAll)
-	if err != nil {
-		return err
-	}
+	amount := usdt / pair.HighestBid
 
-	amount := (usdt - 1) / pair.HighestBid
-	_ = usdt
-
-	log.Println("buying", currency, pair.HighestBid, amount)
+	log.Println("buying", currency, pair.HighestBid, amount/1.002) // fee: 0.2%
 	_, err = gateio.Buy(currency, pair.HighestBid, amount)
 
 	return err
@@ -105,10 +112,16 @@ func AllIn(currency string) error {
 
 // AllOut all out
 func AllOut(currency string) error {
+	err := gateio.Cancel(currency, gateio.CancelTypeAll)
+	if err != nil {
+		return err
+	}
+
 	p, err := Position(currency)
 	if err != nil {
 		return err
 	}
+
 	if p == Empty {
 		return nil
 	}
@@ -123,12 +136,7 @@ func AllOut(currency string) error {
 		return err
 	}
 
-	err = gateio.Cancel(currency, gateio.CancelTypeAll)
-	if err != nil {
-		return err
-	}
-
-	log.Println("selling", currency, pair.LowestAsk, amount)
+	log.Println("selling", currency, pair.LowestAsk, amount/1.002) // fee: 0.2%
 	_, err = gateio.Sell(currency, pair.LowestAsk, amount)
 
 	return err
