@@ -20,6 +20,12 @@
   version = "v4.2.1"
 
 [[projects]]
+  name = "github.com/pkg/errors"
+  packages = ["."]
+  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
+  version = "v0.8.0"
+
+[[projects]]
   name = "github.com/smartystreets/assertions"
   packages = [
     ".",
@@ -48,6 +54,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "2ec93a3e73e2400c4d7166e0da2982e2468e55899798c0a79871da77e231740b"
+  inputs-digest = "a31211c51493db1c4b5254a9185d17d0bf1df9e3ae83e4fb33444eb148480791"
   solver-name = "gps-cdcl"
   solver-version = 1
