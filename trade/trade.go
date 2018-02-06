@@ -8,6 +8,8 @@ import (
 
 	"github.com/modood/cts/dingtalk"
 	"github.com/modood/cts/gateio"
+	"github.com/modood/cts/util"
+	"github.com/pkg/errors"
 )
 
 // Status
@@ -24,7 +26,7 @@ var order *gateio.Order = &gateio.Order{}
 func Flush(currency string) error {
 	b, err := gateio.MyBalance()
 	if err != nil {
-		return err
+		return errors.Wrap(err, util.FuncName())
 	}
 
 	balance = b
@@ -34,16 +36,14 @@ func Flush(currency string) error {
 	if err != nil {
 		// do nothing
 	} else if o.OrderID != "" && o.OrderID != order.OrderID {
-		if order.OrderID != "" {
-			// have new deal
-			text, err := message(o)
-			if err != nil {
-				// do nothing
-			}
-			err = dingtalk.Push(text)
-			if err != nil {
-				// do nothing
-			}
+		// have new deal
+		text, err := message(o)
+		if err != nil {
+			return errors.Wrap(err, util.FuncName())
+		}
+		err = dingtalk.Push(text)
+		if err != nil {
+			return errors.Wrap(err, util.FuncName())
 		}
 		order = o
 	}
@@ -55,17 +55,17 @@ func Flush(currency string) error {
 func Position(currency string) (int8, error) {
 	usdt, err := carry("USDT")
 	if err != nil {
-		return None, err
+		return None, errors.Wrap(err, util.FuncName())
 	}
 
 	amount, err := carry(currency)
 	if err != nil {
-		return None, err
+		return None, errors.Wrap(err, util.FuncName())
 	}
 
 	pair, err := gateio.Ticker(currency)
 	if err != nil {
-		return None, err
+		return None, errors.Wrap(err, util.FuncName())
 	}
 
 	if usdt < 10 {
@@ -80,12 +80,12 @@ func Position(currency string) (int8, error) {
 func AllIn(currency string) error {
 	err := gateio.Cancel(currency, gateio.CancelTypeAll)
 	if err != nil {
-		return err
+		return errors.Wrap(err, util.FuncName())
 	}
 
 	p, err := Position(currency)
 	if err != nil {
-		return err
+		return errors.Wrap(err, util.FuncName())
 	}
 
 	if p == Full {
@@ -94,32 +94,35 @@ func AllIn(currency string) error {
 
 	usdt, err := carry("USDT")
 	if err != nil {
-		return err
+		return errors.Wrap(err, util.FuncName())
 	}
 
 	pair, err := gateio.Ticker(currency)
 	if err != nil {
-		return err
+		return errors.Wrap(err, util.FuncName())
 	}
 
-	amount := usdt / pair.HighestBid
+	amount := usdt / pair.HighestBid / 1.002 // fee: 0.2%
 
-	log.Println("buying", currency, pair.HighestBid, amount/1.002) // fee: 0.2%
+	log.Println("buying", currency, pair.HighestBid, amount)
 	_, err = gateio.Buy(currency, pair.HighestBid, amount)
+	if err != nil {
+		return errors.Wrap(err, util.FuncName())
+	}
 
-	return err
+	return nil
 }
 
 // AllOut all out
 func AllOut(currency string) error {
 	err := gateio.Cancel(currency, gateio.CancelTypeAll)
 	if err != nil {
-		return err
+		return errors.Wrap(err, util.FuncName())
 	}
 
 	p, err := Position(currency)
 	if err != nil {
-		return err
+		return errors.Wrap(err, util.FuncName())
 	}
 
 	if p == Empty {
@@ -128,18 +131,23 @@ func AllOut(currency string) error {
 
 	amount, err := carry(currency)
 	if err != nil {
-		return err
+		return errors.Wrap(err, util.FuncName())
 	}
 
 	pair, err := gateio.Ticker(currency)
 	if err != nil {
-		return err
+		return errors.Wrap(err, util.FuncName())
 	}
 
-	log.Println("selling", currency, pair.LowestAsk, amount/1.002) // fee: 0.2%
-	_, err = gateio.Sell(currency, pair.LowestAsk, amount)
+	amount = amount / 1.002 // fee: 0.2%
 
-	return err
+	log.Println("selling", currency, pair.LowestAsk, amount)
+	_, err = gateio.Sell(currency, pair.LowestAsk, amount)
+	if err != nil {
+		return errors.Wrap(err, util.FuncName())
+	}
+
+	return nil
 }
 
 func carry(currency string) (float64, error) {
@@ -150,7 +158,7 @@ func carry(currency string) (float64, error) {
 
 	if balance == nil {
 		if err := Flush(currency); err != nil {
-			return 0, err
+			return 0, errors.Wrap(err, util.FuncName())
 		}
 	}
 
@@ -161,7 +169,7 @@ func carry(currency string) (float64, error) {
 
 	f, err := strconv.ParseFloat(str, 64)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, util.FuncName())
 	}
 
 	return f, nil
@@ -170,7 +178,7 @@ func carry(currency string) (float64, error) {
 func message(o *gateio.Order) (string, error) {
 	a, err := gateio.MyAsset()
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, util.FuncName())
 	}
 
 	return strconv.Itoa(time.Now().Year()) + "-" + o.Date +
