@@ -11,6 +11,8 @@ import (
 	"github.com/modood/cts/gateio"
 	"github.com/modood/cts/strategy"
 	"github.com/modood/cts/trade"
+	"github.com/modood/cts/util"
+	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
@@ -61,34 +63,34 @@ func action(c *cli.Context) error {
 
 		err := trade.Flush(currency)
 		if err != nil {
-			log.Println(err)
+			handle(err)
 			continue
 		}
 
 		sig, err := signal(stra)
 		if err != nil {
-			log.Println(err)
+			handle(err)
 			continue
 		}
 
 		err = exec(sig, currency)
 		if err != nil {
-			log.Println(err)
+			handle(err)
 			continue
 		}
 	}
-	return nil
 }
 
 func signal(stra string) (uint8, error) {
 	s, ok := strategies[stra]
 	if !ok {
-		return strategy.SIG_NONE, fmt.Errorf("unknown strategy: %s", stra)
+		err := fmt.Errorf("unknown strategy: %s", stra)
+		return strategy.SIG_NONE, errors.Wrap(err, util.FuncName())
 	}
 
 	sig, err := s.Signal()
 	if err != nil {
-		return strategy.SIG_NONE, err
+		return strategy.SIG_NONE, errors.Wrap(err, util.FuncName())
 	}
 
 	return sig, nil
@@ -99,12 +101,12 @@ func exec(signal uint8, currency string) error {
 	case strategy.SIG_RISE:
 		err := trade.AllIn(currency)
 		if err != nil {
-			return err
+			return errors.Wrap(err, util.FuncName())
 		}
 	case strategy.SIG_FALL:
 		err := trade.AllOut(currency)
 		if err != nil {
-			return err
+			return errors.Wrap(err, util.FuncName())
 		}
 	case strategy.SIG_NONE:
 		fallthrough
@@ -112,4 +114,11 @@ func exec(signal uint8, currency string) error {
 		// do nothing
 	}
 	return nil
+}
+
+func handle(err error) {
+	e := dingtalk.Push(err.Error())
+	if e != nil {
+		log.Println(e, err)
+	}
 }
