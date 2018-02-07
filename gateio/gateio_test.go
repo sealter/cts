@@ -91,3 +91,12 @@ func TestLatestOrder(t *testing.T) {
 		So(err, ShouldNotBeNil)
 	})
 }
+
+func TestOrderLen(t *testing.T) {
+	Convey("should return count of open orders", t, func() {
+		Init("key", "secret")
+		r, err := OpenOrderLen()
+		So(err, ShouldNotBeNil)
+		So(r, ShouldEqual, 0)
+	})
+}

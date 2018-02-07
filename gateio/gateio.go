@@ -303,6 +303,25 @@ func LatestOrder(currency string) (*Order, error) {
 	return &Order{}, nil
 }
 
+// OpenOrderLen return count of open orders
+func OpenOrderLen() (int, error) {
+	bs, err := req("POST", "https://api.gate.io/api2/1/private/openOrders", "")
+	if err := handle(bs, err); err != nil {
+		return 0, errors.Wrap(err, util.FuncName())
+	}
+
+	r := struct {
+		Orders []interface{} `json:"orders"`
+	}{}
+
+	err = json.Unmarshal(bs, &r)
+	if err != nil {
+		return 0, errors.Wrap(err, util.FuncName())
+	}
+
+	return len(r.Orders), nil
+}
+
 func sign(params string) (string, error) {
 	key := []byte(secret)
 
