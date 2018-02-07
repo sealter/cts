@@ -78,9 +78,15 @@ func Position(currency string) (int8, error) {
 
 // AllIn all in
 func AllIn(currency string) error {
-	err := gateio.Cancel(currency, gateio.CancelTypeAll)
+	count, err := gateio.OpenOrderLen()
 	if err != nil {
 		return errors.Wrap(err, util.FuncName())
+	}
+	if count != 0 {
+		err := gateio.Cancel(currency, gateio.CancelTypeAll)
+		if err != nil {
+			return errors.Wrap(err, util.FuncName())
+		}
 	}
 
 	p, err := Position(currency)
@@ -115,9 +121,15 @@ func AllIn(currency string) error {
 
 // AllOut all out
 func AllOut(currency string) error {
-	err := gateio.Cancel(currency, gateio.CancelTypeAll)
+	count, err := gateio.OpenOrderLen()
 	if err != nil {
 		return errors.Wrap(err, util.FuncName())
+	}
+	if count != 0 {
+		err := gateio.Cancel(currency, gateio.CancelTypeAll)
+		if err != nil {
+			return errors.Wrap(err, util.FuncName())
+		}
 	}
 
 	p, err := Position(currency)
