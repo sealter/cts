@@ -3,7 +3,6 @@ package gateio
 import (
 	"crypto/hmac"
 	"crypto/sha512"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -11,21 +10,26 @@ import (
 	"strings"
 
 	jsoniter "github.com/json-iterator/go"
+	"github.com/modood/cts/util"
+	"github.com/pkg/errors"
 )
 
 type (
+	// Balance ...
 	Balance struct {
 		Result    string
 		Available map[string]string // 可用
 		Locked    map[string]string // 已锁定
 	}
 
+	// Asset ...
 	Asset struct {
 		Balance  float64
 		Total    float64
 		TotalCNY float64
 	}
 
+	// Pair ...
 	Pair struct {
 		Result        string
 		PercentChange float64 // 涨跌百分比
@@ -38,6 +42,7 @@ type (
 		Low24hr       float64 // 24 小时最低价
 	}
 
+	// Trade ...
 	Trade struct {
 		Result  string
 		Code    int32
@@ -45,6 +50,7 @@ type (
 		OrderID uint64 `json:"orderNumber"` // 订单 ID
 	}
 
+	// Order ...
 	Order struct {
 		TradeID   string `json:"tradeID"`
 		OrderID   string `json:"orderNumber"`
@@ -99,6 +105,7 @@ var (
 	secret string // your secret key
 )
 
+// CancelType ...
 const (
 	CancelTypeSell = 0
 	CancelTypeBuy  = 1
@@ -115,16 +122,16 @@ func Init(apikey, secretkey string) {
 func GetPairs() ([]string, error) {
 	bs, err := req("GET", "http://data.gate.io/api2/1/pairs", "")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, util.FuncName())
 	}
 
 	var l []string
 	err = json.Unmarshal(bs, &l)
 	if err != nil {
 		if err := gateioErrorHandle(bs, nil); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, util.FuncName())
 		}
-		return nil, err
+		return nil, errors.Wrap(err, util.FuncName())
 	}
 
 	return l, nil
@@ -136,13 +143,13 @@ func Ticker(currency string) (*Pair, error) {
 	bs, err := req("GET",
 		fmt.Sprintf("http://data.gate.io/api2/1/ticker/%s", currency), "")
 	if err := gateioErrorHandle(bs, err); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, util.FuncName())
 	}
 
 	p := Pair{}
 	err = json.Unmarshal(bs, &p)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, util.FuncName())
 	}
 
 	return &p, nil
@@ -152,13 +159,13 @@ func Ticker(currency string) (*Pair, error) {
 func MyBalance() (*Balance, error) {
 	bs, err := req("POST", "https://api.gate.io/api2/1/private/balances", "")
 	if err := gateioErrorHandle(bs, err); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, util.FuncName())
 	}
 
 	b := Balance{}
 	err = json.Unmarshal(bs, &b)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, util.FuncName())
 	}
 
 	return &b, nil
@@ -168,14 +175,14 @@ func MyBalance() (*Balance, error) {
 func MyAsset() (*Asset, error) {
 	b, err := MyBalance()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, util.FuncName())
 	}
 
 	a := Asset{}
 	for k, v := range b.Available {
 		n, err := strconv.ParseFloat(v, 64)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, util.FuncName())
 		}
 
 		if k == "USDT" {
@@ -184,7 +191,7 @@ func MyAsset() (*Asset, error) {
 		} else {
 			t, err := Ticker(strings.ToLower(k) + "_usdt")
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, util.FuncName())
 			}
 
 			a.Total += t.Last * n
@@ -193,7 +200,7 @@ func MyAsset() (*Asset, error) {
 
 	r, err := Rate()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, util.FuncName())
 	}
 
 	a.TotalCNY = r * a.Total
@@ -205,18 +212,18 @@ func MyAsset() (*Asset, error) {
 func Rate() (float64, error) {
 	bs, err := req("GET", "http://data.gate.io/api2/1/ticker/usdt_cny", "")
 	if err := gateioErrorHandle(bs, err); err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, util.FuncName())
 	}
 
 	p := struct{ Last string }{}
 	err = json.Unmarshal(bs, &p)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, util.FuncName())
 	}
 
 	f, err := strconv.ParseFloat(p.Last, 64)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, util.FuncName())
 	}
 
 	return f, nil
@@ -229,13 +236,13 @@ func Buy(currency string, price float64, amount float64) (*Trade, error) {
 
 	bs, err := req("POST", "https://api.gate.io/api2/1/private/buy", params)
 	if err := gateioErrorHandle(bs, err); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, util.FuncName())
 	}
 
 	t := Trade{}
 	err = json.Unmarshal(bs, &t)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, util.FuncName())
 	}
 
 	return &t, nil
@@ -248,13 +255,13 @@ func Sell(currency string, price float64, amount float64) (*Trade, error) {
 
 	bs, err := req("POST", "https://api.gate.io/api2/1/private/sell", params)
 	if err := gateioErrorHandle(bs, err); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, util.FuncName())
 	}
 
 	t := Trade{}
 	err = json.Unmarshal(bs, &t)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, util.FuncName())
 	}
 
 	return &t, nil
@@ -267,8 +274,11 @@ func Cancel(currency string, cancelType int8) error {
 
 	bs, err := req("POST", url, params)
 	err = gateioErrorHandle(bs, err)
+	if err != nil {
+		return errors.Wrap(err, util.FuncName())
+	}
 
-	return err
+	return nil
 }
 
 // LatestOrder return latest order of my last 24h trades
@@ -277,14 +287,14 @@ func LatestOrder(currency string) (*Order, error) {
 	bs, err := req("POST", url, "currencyPair="+currency)
 	err = gateioErrorHandle(bs, err)
 	if err := gateioErrorHandle(bs, err); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, util.FuncName())
 	}
 
 	r := struct{ Trades []*Order }{}
 
 	err = json.Unmarshal(bs, &r)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, util.FuncName())
 	}
 
 	if len(r.Trades) != 0 {
@@ -308,12 +318,12 @@ func req(method string, url string, param string) ([]byte, error) {
 
 	req, err := http.NewRequest(method, url, strings.NewReader(param))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, util.FuncName())
 	}
 
 	s, err := sign(param)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, util.FuncName())
 	}
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -322,14 +332,14 @@ func req(method string, url string, param string) ([]byte, error) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, util.FuncName())
 	}
 
 	defer resp.Body.Close()
 
 	bs, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, util.FuncName())
 	}
 
 	return bs, nil
@@ -337,18 +347,19 @@ func req(method string, url string, param string) ([]byte, error) {
 
 func gateioErrorHandle(bs []byte, err error) error {
 	if err != nil {
-		return err
+		return errors.Wrap(err, util.FuncName())
 	}
 
 	e := gateioError{}
 
 	err = json.Unmarshal(bs, &e)
 	if err != nil {
-		return err
+		return errors.Wrap(err, util.FuncName())
 	}
 
 	if e.Code != 0 {
-		return errors.New(fmt.Sprintf("Code: %d, %s", e.Code, e.Message))
+		err = fmt.Errorf("Code: %d, %s", e.Code, e.Message)
+		return errors.Wrap(err, util.FuncName())
 	}
 
 	return nil
