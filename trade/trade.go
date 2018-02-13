@@ -200,6 +200,7 @@ func message(o *gateio.Order) (string, error) {
 		"\n数量：" + o.Amount +
 		"\n价格：$" + o.Rate +
 		"\n金额：$" + strconv.FormatFloat(o.Total, 'f', 2, 64) +
+		"\n挂单：$" + strconv.FormatFloat(a.Pending, 'f', 2, 64) +
 		"\n余额：$" + strconv.FormatFloat(a.Balance, 'f', 2, 64) +
 		"\n资金：$" + strconv.FormatFloat(a.Total, 'f', 2, 64) +
 		"\n合计：¥" + strconv.FormatFloat(a.TotalCNY, 'f', 2, 64), nil

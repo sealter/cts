@@ -5,6 +5,7 @@ import (
 	"crypto/sha512"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -25,6 +26,7 @@ type (
 	// Asset ...
 	Asset struct {
 		Balance  float64
+		Pending  float64
 		Total    float64
 		TotalCNY float64
 	}
@@ -197,6 +199,25 @@ func MyAsset() (*Asset, error) {
 			a.Total += t.Last * n
 		}
 	}
+	for k, v := range b.Locked {
+		n, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return nil, errors.Wrap(err, util.FuncName())
+		}
+
+		if k == "USDT" {
+			a.Pending += n
+			a.Total += n
+		} else {
+			t, err := Ticker(strings.ToLower(k) + "_usdt")
+			if err != nil {
+				return nil, errors.Wrap(err, util.FuncName())
+			}
+
+			a.Pending += t.Last * n
+			a.Total += t.Last * n
+		}
+	}
 
 	r, err := Rate()
 	if err != nil {
@@ -326,7 +347,10 @@ func sign(params string) (string, error) {
 	key := []byte(secret)
 
 	mac := hmac.New(sha512.New, key)
-	mac.Write([]byte(params))
+	_, err := mac.Write([]byte(params))
+	if err != nil {
+		return "", err
+	}
 
 	return fmt.Sprintf("%x", mac.Sum(nil)), nil
 }
@@ -353,7 +377,11 @@ func req(method string, url string, param string) ([]byte, error) {
 		return nil, errors.Wrap(err, util.FuncName())
 	}
 
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Println(err)
+		}
+	}()
 
 	bs, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
