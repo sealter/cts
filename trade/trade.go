@@ -193,7 +193,22 @@ func message(o *gateio.Order) (string, error) {
 		return "", errors.Wrap(err, util.FuncName())
 	}
 
+	m, err := gateio.Tickers()
+	if err != nil {
+		return "", errors.Wrap(err, util.FuncName())
+	}
+
+	var rise, fall uint16
+	for _, v := range m {
+		if v.PercentChange > 0 {
+			rise++
+		} else {
+			fall++
+		}
+	}
+
 	return strconv.Itoa(time.Now().Year()) + "-" + o.Date +
+		"\n行情：" + strconv.FormatUint(uint64(rise), 10) + "↑, " + strconv.FormatUint(uint64(fall), 10) + "↓" +
 		"\n订单：" + o.OrderID +
 		"\n类型：" + o.Type +
 		"\n品种：" + o.Currency +
