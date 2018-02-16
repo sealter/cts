@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	jsoniter "github.com/json-iterator/go"
+	"github.com/mitchellh/mapstructure"
 	"github.com/modood/cts/util"
 	"github.com/pkg/errors"
 )
@@ -18,9 +19,9 @@ import (
 type (
 	// Balance ...
 	Balance struct {
-		Result    string
-		Available map[string]string // 可用
-		Locked    map[string]string // 已锁定
+		Result    bool              `mapstructure:"result"`
+		Available map[string]string `mapstructure:"Available"` // 可用
+		Locked    map[string]string `mapstructure:"Locked"`    // 已锁定
 	}
 
 	// Asset ...
@@ -33,46 +34,35 @@ type (
 
 	// Pair ...
 	Pair struct {
-		Result        string
-		PercentChange float64 // 涨跌百分比
-		Last          float64 // 最新成交价
-		LowestAsk     float64 // 卖方最低价
-		HighestBid    float64 // 买方最高价
-		BaseVolume    float64 // 交易量
-		QuoteVolume   float64 // 兑换货币交易量
-		High24hr      float64 // 24 小时最高价
-		Low24hr       float64 // 24 小时最低价
-	}
-
-	// Trade ...
-	Trade struct {
-		Result  string
-		Code    int32
-		Message string
-		OrderID uint64 `json:"orderNumber"` // 订单 ID
+		Result        bool    `mapstructure:"result"`
+		PercentChange float64 `mapstructure:"percentChange"` // 涨跌百分比
+		Last          float64 `mapstructure:"last"`          // 最新成交价
+		LowestAsk     float64 `mapstructure:"lowestAsk"`     // 卖方最低价
+		HighestBid    float64 `mapstructure:"highestBid"`    // 买方最高价
+		BaseVolume    float64 `mapstructure:"baseVolume"`    // 交易量
+		QuoteVolume   float64 `mapstructure:"quoteVolume"`   // 兑换货币交易量
+		High24hr      float64 `mapstructure:"high24hr"`      // 24 小时最高价
+		Low24hr       float64 `mapstructure:"low24hr"`       // 24 小时最低价
 	}
 
 	// Order ...
 	Order struct {
-		TradeID   string `json:"tradeID"`
-		OrderID   string `json:"orderNumber"`
-		Currency  string `json:"pair"`
-		Type      string
-		Rate      string
-		Amount    string
-		Total     float64
-		Date      string
-		Timestamp string `json:"time_unix"`
+		TradeID   string  `mapstructure:"tradeID"`
+		OrderID   string  `mapstructure:"orderNumber"`
+		Currency  string  `mapstructure:"pair"`
+		Type      string  `mapstructure:"type"`
+		Rate      string  `mapstructure:"rate"`
+		Amount    string  `mapstructure:"amount"`
+		Total     float64 `mapstructure:"total"`
+		Date      string  `mapstructure:"date"`
+		Timestamp string  `mapstructure:"time_unix"`
 	}
 
 	gateioError struct {
 		// Response:
 		// true		success
 		// false	fail
-		//
-		// Result 有可能是字符串 "true"，也有可能是布尔值 true
-		// cancelAllOrders 接口会返回布尔值
-		Result interface{}
+		Result bool `mapstructure:"result"`
 
 		// Error code:
 		// 0	Success
@@ -95,8 +85,8 @@ type (
 		// 19	Not permitted or trade is disabled
 		// 20	Your order size is too small
 		// 21	You don't have enough fund
-		Code    int32
-		Message string
+		Code    int32  `mapstructure:"code"`
+		Message string `mapstructure:"message"`
 	}
 )
 
@@ -139,6 +129,33 @@ func GetPairs() ([]string, error) {
 	return l, nil
 }
 
+// Tickers return pairs
+func Tickers() (map[string]*Pair, error) {
+	bs, err := req("GET",
+		fmt.Sprintf("http://data.gate.io/api2/1/tickers"), "")
+	if err := handle(bs, err); err != nil {
+		return nil, errors.Wrap(err, util.FuncName())
+	}
+
+	m := make(map[string]map[string]interface{})
+	err = json.Unmarshal(bs, &m)
+	if err != nil {
+		return nil, errors.Wrap(err, util.FuncName())
+	}
+
+	r := make(map[string]*Pair)
+	for k, v := range m {
+		p := Pair{}
+		if err = decode(v, &p); err != nil {
+			return nil, errors.Wrap(err, util.FuncName())
+		}
+
+		r[k] = &p
+	}
+
+	return r, nil
+}
+
 // Ticker returns the current ticker for the selected currency,
 // cached in 10 seconds.
 func Ticker(currency string) (*Pair, error) {
@@ -148,9 +165,14 @@ func Ticker(currency string) (*Pair, error) {
 		return nil, errors.Wrap(err, util.FuncName())
 	}
 
-	p := Pair{}
-	err = json.Unmarshal(bs, &p)
+	m := make(map[string]interface{})
+	err = json.Unmarshal(bs, &m)
 	if err != nil {
+		return nil, errors.Wrap(err, util.FuncName())
+	}
+
+	p := Pair{}
+	if err = decode(m, &p); err != nil {
 		return nil, errors.Wrap(err, util.FuncName())
 	}
 
@@ -164,9 +186,14 @@ func MyBalance() (*Balance, error) {
 		return nil, errors.Wrap(err, util.FuncName())
 	}
 
-	b := Balance{}
-	err = json.Unmarshal(bs, &b)
+	m := make(map[string]interface{})
+	err = json.Unmarshal(bs, &m)
 	if err != nil {
+		return nil, errors.Wrap(err, util.FuncName())
+	}
+
+	b := Balance{}
+	if err = decode(m, &b); err != nil {
 		return nil, errors.Wrap(err, util.FuncName())
 	}
 
@@ -231,61 +258,64 @@ func MyAsset() (*Asset, error) {
 
 // Rate return exchange rate of USD/CNY
 func Rate() (float64, error) {
-	bs, err := req("GET", "http://data.gate.io/api2/1/ticker/usdt_cny", "")
-	if err := handle(bs, err); err != nil {
-		return 0, errors.Wrap(err, util.FuncName())
-	}
-
-	p := struct{ Last string }{}
-	err = json.Unmarshal(bs, &p)
+	p, err := Ticker("usdt_cny")
 	if err != nil {
 		return 0, errors.Wrap(err, util.FuncName())
 	}
 
-	f, err := strconv.ParseFloat(p.Last, 64)
-	if err != nil {
-		return 0, errors.Wrap(err, util.FuncName())
-	}
-
-	return f, nil
+	return p.Last, nil
 }
 
 // Buy place order buy
-func Buy(currency string, price float64, amount float64) (*Trade, error) {
+func Buy(currency string, price float64, amount float64) (uint64, error) {
 	params := fmt.Sprintf("currencyPair=%s&rate=%f&amount=%f",
 		currency, price, amount)
 
 	bs, err := req("POST", "https://api.gate.io/api2/1/private/buy", params)
 	if err := handle(bs, err); err != nil {
-		return nil, errors.Wrap(err, util.FuncName())
+		return 0, errors.Wrap(err, util.FuncName())
 	}
 
-	t := Trade{}
-	err = json.Unmarshal(bs, &t)
+	m := make(map[string]interface{})
+	err = json.Unmarshal(bs, &m)
 	if err != nil {
-		return nil, errors.Wrap(err, util.FuncName())
+		return 0, errors.Wrap(err, util.FuncName())
 	}
 
-	return &t, nil
+	t := struct {
+		OrderID uint64 `mapstructure:"orderNumber"` // 订单 ID
+	}{}
+	if err := decode(m, &t); err != nil {
+		return 0, errors.Wrap(err, util.FuncName())
+	}
+
+	return t.OrderID, nil
 }
 
 // Sell place order sell
-func Sell(currency string, price float64, amount float64) (*Trade, error) {
+func Sell(currency string, price float64, amount float64) (uint64, error) {
 	params := fmt.Sprintf("currencyPair=%s&rate=%f&amount=%f",
 		currency, price, amount)
 
 	bs, err := req("POST", "https://api.gate.io/api2/1/private/sell", params)
 	if err := handle(bs, err); err != nil {
-		return nil, errors.Wrap(err, util.FuncName())
+		return 0, errors.Wrap(err, util.FuncName())
 	}
 
-	t := Trade{}
-	err = json.Unmarshal(bs, &t)
+	m := make(map[string]interface{})
+	err = json.Unmarshal(bs, &m)
 	if err != nil {
-		return nil, errors.Wrap(err, util.FuncName())
+		return 0, errors.Wrap(err, util.FuncName())
 	}
 
-	return &t, nil
+	t := struct {
+		OrderID uint64 `mapstructure:"orderNumber"` // 订单 ID
+	}{}
+	if err := decode(m, &t); err != nil {
+		return 0, errors.Wrap(err, util.FuncName())
+	}
+
+	return t.OrderID, nil
 }
 
 // Cancel cancel all orders
@@ -396,9 +426,23 @@ func handle(bs []byte, err error) error {
 		return errors.Wrap(err, util.FuncName())
 	}
 
+	m := make(map[string]interface{})
+	err = json.Unmarshal(bs, &m)
+	if err != nil {
+		return errors.Wrap(err, util.FuncName())
+	}
+
 	e := gateioError{}
 
-	err = json.Unmarshal(bs, &e)
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		WeaklyTypedInput: true,
+		Result:           &e,
+	})
+	if err != nil {
+		return errors.Wrap(err, util.FuncName())
+	}
+
+	err = decoder.Decode(m)
 	if err != nil {
 		return errors.Wrap(err, util.FuncName())
 	}
@@ -408,5 +452,23 @@ func handle(bs []byte, err error) error {
 		return errors.Wrap(err, util.FuncName())
 	}
 
+	return nil
+}
+
+// decode convert an arbitrary map[string]interface{} into a Go structure.
+func decode(m map[string]interface{}, i interface{}) error {
+	decoder, err := mapstructure.NewDecoder(
+		&mapstructure.DecoderConfig{
+			WeaklyTypedInput: true,
+			Result:           i,
+		})
+	if err != nil {
+		return errors.Wrap(err, util.FuncName())
+	}
+
+	err = decoder.Decode(m)
+	if err != nil {
+		return errors.Wrap(err, util.FuncName())
+	}
 	return nil
 }

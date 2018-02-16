@@ -29,10 +29,18 @@ func TestTicker(t *testing.T) {
 		Init("key", "secret")
 		r, err := Ticker("btc_usdt")
 		So(err, ShouldBeNil)
-		So(r.Result, ShouldEqual, "true")
+		So(r.Result, ShouldEqual, true)
 
 		_, err = Ticker("btc_shit")
 		So(err, ShouldNotBeNil)
+	})
+}
+
+func TestTickers(t *testing.T) {
+	Convey("should return pairs", t, func() {
+		Init("key", "secret")
+		_, err := Tickers()
+		So(err, ShouldBeNil)
 	})
 }
 
@@ -92,7 +100,7 @@ func TestLatestOrder(t *testing.T) {
 	})
 }
 
-func TestOrderLen(t *testing.T) {
+func TestOpenOrderLen(t *testing.T) {
 	Convey("should return count of open orders", t, func() {
 		Init("key", "secret")
 		r, err := OpenOrderLen()
