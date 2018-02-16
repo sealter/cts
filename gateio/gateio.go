@@ -19,9 +19,9 @@ import (
 type (
 	// Balance ...
 	Balance struct {
-		Result    bool              `mapstructure:"result"`
-		Available map[string]string `mapstructure:"Available"` // 可用
-		Locked    map[string]string `mapstructure:"Locked"`    // 已锁定
+		Result    bool
+		Available map[string]string // 可用
+		Locked    map[string]string // 已锁定
 	}
 
 	// Asset ...
@@ -34,35 +34,35 @@ type (
 
 	// Pair ...
 	Pair struct {
-		Result        bool    `mapstructure:"result"`
-		PercentChange float64 `mapstructure:"percentChange"` // 涨跌百分比
-		Last          float64 `mapstructure:"last"`          // 最新成交价
-		LowestAsk     float64 `mapstructure:"lowestAsk"`     // 卖方最低价
-		HighestBid    float64 `mapstructure:"highestBid"`    // 买方最高价
-		BaseVolume    float64 `mapstructure:"baseVolume"`    // 交易量
-		QuoteVolume   float64 `mapstructure:"quoteVolume"`   // 兑换货币交易量
-		High24hr      float64 `mapstructure:"high24hr"`      // 24 小时最高价
-		Low24hr       float64 `mapstructure:"low24hr"`       // 24 小时最低价
+		Result        bool
+		PercentChange float64 // 涨跌百分比
+		Last          float64 // 最新成交价
+		LowestAsk     float64 // 卖方最低价
+		HighestBid    float64 // 买方最高价
+		BaseVolume    float64 // 交易量
+		QuoteVolume   float64 // 兑换货币交易量
+		High24hr      float64 // 24 小时最高价
+		Low24hr       float64 // 24 小时最低价
 	}
 
 	// Order ...
 	Order struct {
-		TradeID   string  `mapstructure:"tradeID"`
-		OrderID   string  `mapstructure:"orderNumber"`
-		Currency  string  `mapstructure:"pair"`
-		Type      string  `mapstructure:"type"`
-		Rate      string  `mapstructure:"rate"`
-		Amount    string  `mapstructure:"amount"`
-		Total     float64 `mapstructure:"total"`
-		Date      string  `mapstructure:"date"`
-		Timestamp string  `mapstructure:"time_unix"`
+		TradeID   string `mapstructure:"tradeID" json:"tradeID"`
+		OrderID   string `mapstructure:"orderNumber" json:"orderNumber"`
+		Currency  string `mapstructure:"pair" json:"pair"`
+		Type      string
+		Rate      string
+		Amount    string
+		Total     float64
+		Date      string
+		Timestamp string `mapstructure:"time_unix" json:"time_unix"`
 	}
 
 	gateioError struct {
 		// Response:
 		// true		success
 		// false	fail
-		Result bool `mapstructure:"result"`
+		Result bool
 
 		// Error code:
 		// 0	Success
@@ -85,8 +85,8 @@ type (
 		// 19	Not permitted or trade is disabled
 		// 20	Your order size is too small
 		// 21	You don't have enough fund
-		Code    int32  `mapstructure:"code"`
-		Message string `mapstructure:"message"`
+		Code    int32
+		Message string
 	}
 )
 
