@@ -34,8 +34,9 @@ func Flush(currency string) error {
 	// check latest deal
 	o, err := gateio.LatestOrder(currency)
 	if err != nil {
-		// do nothing
-	} else if o.OrderID != "" && o.OrderID != order.OrderID {
+		return errors.Wrap(err, util.FuncName())
+	}
+	if o.TradeID != "" && o.TradeID != order.TradeID {
 		// have new deal
 		text, err := message(o)
 		if err != nil {
@@ -109,6 +110,9 @@ func AllIn(currency string) error {
 	}
 
 	amount := usdt / pair.HighestBid / 1.002 // fee: 0.2%
+	if amount < 0.001 {
+		return nil
+	}
 
 	log.Println("buying", currency, pair.HighestBid, amount)
 	_, err = gateio.Buy(currency, pair.HighestBid, amount)
@@ -152,6 +156,9 @@ func AllOut(currency string) error {
 	}
 
 	amount = amount / 1.002 // fee: 0.2%
+	if amount < 0.001 {
+		return nil
+	}
 
 	log.Println("selling", currency, pair.LowestAsk, amount)
 	_, err = gateio.Sell(currency, pair.LowestAsk, amount)
@@ -199,7 +206,10 @@ func message(o *gateio.Order) (string, error) {
 	}
 
 	var rise, fall uint16
-	for _, v := range m {
+	for k, v := range m {
+		if !strings.HasSuffix(k, "_usdt") {
+			continue
+		}
 		if v.PercentChange > 0 {
 			rise++
 		} else {
@@ -209,7 +219,7 @@ func message(o *gateio.Order) (string, error) {
 
 	return strconv.Itoa(time.Now().Year()) + "-" + o.Date +
 		"\n行情：" + strconv.FormatUint(uint64(rise), 10) + "↑, " + strconv.FormatUint(uint64(fall), 10) + "↓" +
-		"\n订单：" + o.OrderID +
+		"\n订单：" + o.TradeID +
 		"\n类型：" + o.Type +
 		"\n品种：" + o.Currency +
 		"\n数量：" + o.Amount +
