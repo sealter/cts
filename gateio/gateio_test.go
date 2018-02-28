@@ -26,7 +26,6 @@ func TestGetPairs(t *testing.T) {
 
 func TestTicker(t *testing.T) {
 	Convey("should return pair ticker", t, func() {
-		Init("key", "secret")
 		r, err := Ticker("btc_usdt")
 		So(err, ShouldBeNil)
 		So(r.Result, ShouldEqual, true)
@@ -38,7 +37,6 @@ func TestTicker(t *testing.T) {
 
 func TestTickers(t *testing.T) {
 	Convey("should return pairs", t, func() {
-		Init("key", "secret")
 		_, err := Tickers()
 		So(err, ShouldBeNil)
 	})
@@ -106,5 +104,12 @@ func TestOpenOrderLen(t *testing.T) {
 		r, err := OpenOrderLen()
 		So(err, ShouldNotBeNil)
 		So(r, ShouldEqual, 0)
+	})
+}
+
+func TestTrend(t *testing.T) {
+	Convey("should return trend successfully", t, func() {
+		_, _, err := Trend()
+		So(err, ShouldBeNil)
 	})
 }

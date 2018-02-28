@@ -200,21 +200,9 @@ func message(o *gateio.Order) (string, error) {
 		return "", errors.Wrap(err, util.FuncName())
 	}
 
-	m, err := gateio.Tickers()
+	rise, fall, err := gateio.Trend()
 	if err != nil {
 		return "", errors.Wrap(err, util.FuncName())
-	}
-
-	var rise, fall uint16
-	for k, v := range m {
-		if !strings.HasSuffix(k, "_usdt") {
-			continue
-		}
-		if v.PercentChange > 0 {
-			rise++
-		} else {
-			fall++
-		}
 	}
 
 	return strconv.Itoa(time.Now().Year()) + "-" + o.Date +

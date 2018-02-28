@@ -373,6 +373,26 @@ func OpenOrderLen() (int, error) {
 	return len(r.Orders), nil
 }
 
+// Trend return market trend
+func Trend() (rise, fall uint16, err error) {
+	m, err := Tickers()
+	if err != nil {
+		return 0, 0, errors.Wrap(err, util.FuncName())
+	}
+
+	for k, v := range m {
+		if !strings.HasSuffix(k, "_usdt") {
+			continue
+		}
+		if v.PercentChange > 0 {
+			rise++
+		} else {
+			fall++
+		}
+	}
+	return rise, fall, nil
+}
+
 func sign(params string) (string, error) {
 	key := []byte(secret)
 
