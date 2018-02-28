@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/modood/cts/dingtalk"
@@ -13,10 +14,12 @@ import (
 	"github.com/modood/cts/trade"
 	"github.com/modood/cts/util"
 	"github.com/pkg/errors"
+	"github.com/robfig/cron"
 	"github.com/urfave/cli"
 )
 
 var strategies = strategy.Strategies()
+var count uint64
 
 func main() {
 	app := cli.NewApp()
@@ -47,7 +50,9 @@ func main() {
 		},
 	}
 	app.Action = action
-	app.Run(os.Args)
+	if err := app.Run(os.Args); err != nil {
+		log.Fatalln(err)
+	}
 }
 
 func action(c *cli.Context) error {
@@ -57,6 +62,10 @@ func action(c *cli.Context) error {
 	dingtalk.Init(c.String("dingtoken"))
 	currency := c.String("currency")
 	stra := c.String("strategy")
+
+	// cron job
+	cr := schedule()
+	cr.Start()
 
 	for {
 		time.Sleep(time.Second * 5)
@@ -85,12 +94,12 @@ func signal(stra string) (uint8, error) {
 	s, ok := strategies[stra]
 	if !ok {
 		err := fmt.Errorf("unknown strategy: %s", stra)
-		return strategy.SIG_NONE, errors.Wrap(err, util.FuncName())
+		return strategy.SigNone, errors.Wrap(err, util.FuncName())
 	}
 
 	sig, err := s.Signal()
 	if err != nil {
-		return strategy.SIG_NONE, errors.Wrap(err, util.FuncName())
+		return strategy.SigNone, errors.Wrap(err, util.FuncName())
 	}
 
 	return sig, nil
@@ -98,17 +107,17 @@ func signal(stra string) (uint8, error) {
 
 func exec(signal uint8, currency string) error {
 	switch signal {
-	case strategy.SIG_RISE:
+	case strategy.SigRise:
 		err := trade.AllIn(currency)
 		if err != nil {
 			return errors.Wrap(err, util.FuncName())
 		}
-	case strategy.SIG_FALL:
+	case strategy.SigFall:
 		err := trade.AllOut(currency)
 		if err != nil {
 			return errors.Wrap(err, util.FuncName())
 		}
-	case strategy.SIG_NONE:
+	case strategy.SigNone:
 		fallthrough
 	default:
 		// do nothing
@@ -117,8 +126,56 @@ func exec(signal uint8, currency string) error {
 }
 
 func handle(err error) {
-	e := dingtalk.Push(err.Error())
-	if e != nil {
-		log.Println(e, err)
+	atomic.AddUint64(&count, 1)
+	log.Println(err)
+}
+
+func schedule() *cron.Cron {
+	c := cron.New()
+	err := c.AddFunc("0 0 7-23,0 * * *", func() {
+		var retry uint16
+
+	asset:
+		a, err := gateio.MyAsset()
+		if err != nil {
+			if retry++; retry < 5 {
+				goto asset
+			}
+			e := dingtalk.Push(err.Error())
+			if e != nil {
+				log.Println(e, err)
+			}
+		}
+
+		retry = 0
+
+	trend:
+		rise, fall, err := gateio.Trend()
+		if err != nil {
+			if retry++; retry < 5 {
+				goto trend
+			}
+			e := dingtalk.Push(err.Error())
+			if e != nil {
+				log.Println(e, err)
+			}
+		}
+
+		msg := fmt.Sprintf("监控：%d Error(s)\n行情：%d↑, %d↓\n挂单：$%.2f\n余额：$%.2f\n资金：$%.2f\n合计：¥%.2f",
+			atomic.LoadUint64(&count), rise, fall, a.Pending, a.Balance, a.Total, a.TotalCNY)
+		atomic.StoreUint64(&count, 0)
+
+		err = dingtalk.Push(msg)
+		if err != nil {
+			log.Println(err)
+		}
+	})
+	if err != nil {
+		e := dingtalk.Push(err.Error())
+		if e != nil {
+			log.Println(e, err)
+		}
 	}
+
+	return c
 }
