@@ -20,7 +20,7 @@ func TestSignal(t *testing.T) {
 
 		sig, err := signal("xxxxxx")
 		So(err, ShouldNotBeNil)
-		So(sig, ShouldEqual, strategy.SIG_NONE)
+		So(sig, ShouldEqual, strategy.SigNone)
 
 	})
 }
@@ -29,13 +29,13 @@ func TestExec(t *testing.T) {
 	Convey("should refresh balance cache unsuccessfully", t, func(c C) {
 		gateio.Init("apikey", "secretkey")
 		var err error
-		err = exec(strategy.SIG_RISE, "doge_usdt")
+		err = exec(strategy.SigRise, "doge_usdt")
 		So(err, ShouldNotBeNil)
 
-		err = exec(strategy.SIG_FALL, "doge_usdt")
+		err = exec(strategy.SigFall, "doge_usdt")
 		So(err, ShouldNotBeNil)
 
-		err = exec(strategy.SIG_NONE, "doge_usdt")
+		err = exec(strategy.SigNone, "doge_usdt")
 		So(err, ShouldBeNil)
 	})
 }

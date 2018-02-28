@@ -23,6 +23,6 @@ func TestRippleDoge(t *testing.T) {
 			close(ch)
 		}()
 
-		c.So([]uint8{SIG_NONE, SIG_RISE, SIG_FALL}, ShouldContain, <-ch)
+		c.So([]uint8{SigNone, SigRise, SigFall}, ShouldContain, <-ch)
 	})
 }

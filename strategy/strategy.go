@@ -1,9 +1,10 @@
 package strategy
 
+// Signals
 const (
-	SIG_NONE = iota // none
-	SIG_RISE        // going up
-	SIG_FALL        // going down
+	SigNone = iota // none
+	SigRise        // going up
+	SigFall        // going down
 )
 
 // Strategy is trading strategy
@@ -36,8 +37,8 @@ func Available() []string {
 // Signals return all available signal
 func Signals() []uint8 {
 	return []uint8{
-		SIG_NONE,
-		SIG_RISE,
-		SIG_FALL,
+		SigNone,
+		SigRise,
+		SigFall,
 	}
 }
