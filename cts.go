@@ -21,6 +21,14 @@ import (
 var strategies = strategy.Strategies()
 var count uint64
 
+func init() {
+	tloc, err := time.LoadLocation("Asia/Chongqing")
+	if err != nil {
+		tloc = time.FixedZone("CST", 3600*8)
+	}
+	time.Local = tloc
+}
+
 func main() {
 	app := cli.NewApp()
 	app.Name = "cts"
