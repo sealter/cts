@@ -110,7 +110,7 @@ func Init(apikey, secretkey string) {
 	secret = secretkey
 }
 
-// GetPairs return Return all the trading pairs supported by gate.io
+// GetPairs return all the trading pairs supported by gate.io
 func GetPairs() ([]string, error) {
 	bs, err := req("GET", "http://data.gate.io/api2/1/pairs", "")
 	if err != nil {
@@ -146,7 +146,7 @@ func Tickers() (map[string]*Pair, error) {
 	r := make(map[string]*Pair)
 	for k, v := range m {
 		p := Pair{}
-		if err = decode(v, &p); err != nil {
+		if err = util.Decode(v, &p); err != nil {
 			return nil, errors.Wrap(err, util.FuncName())
 		}
 
@@ -172,7 +172,7 @@ func Ticker(currency string) (*Pair, error) {
 	}
 
 	p := Pair{}
-	if err = decode(m, &p); err != nil {
+	if err = util.Decode(m, &p); err != nil {
 		return nil, errors.Wrap(err, util.FuncName())
 	}
 
@@ -193,7 +193,7 @@ func MyBalance() (*Balance, error) {
 	}
 
 	b := Balance{}
-	if err = decode(m, &b); err != nil {
+	if err = util.Decode(m, &b); err != nil {
 		return nil, errors.Wrap(err, util.FuncName())
 	}
 
@@ -285,7 +285,7 @@ func Buy(currency string, price float64, amount float64) (uint64, error) {
 	t := struct {
 		OrderID uint64 `mapstructure:"orderNumber"` // 订单 ID
 	}{}
-	if err := decode(m, &t); err != nil {
+	if err := util.Decode(m, &t); err != nil {
 		return 0, errors.Wrap(err, util.FuncName())
 	}
 
@@ -311,7 +311,7 @@ func Sell(currency string, price float64, amount float64) (uint64, error) {
 	t := struct {
 		OrderID uint64 `mapstructure:"orderNumber"` // 订单 ID
 	}{}
-	if err := decode(m, &t); err != nil {
+	if err := util.Decode(m, &t); err != nil {
 		return 0, errors.Wrap(err, util.FuncName())
 	}
 
@@ -393,16 +393,14 @@ func Trend() (rise, fall uint16, err error) {
 	return rise, fall, nil
 }
 
-func sign(params string) (string, error) {
-	key := []byte(secret)
-
-	mac := hmac.New(sha512.New, key)
-	_, err := mac.Write([]byte(params))
+func sign(content string) (string, error) {
+	h := hmac.New(sha512.New, []byte(secret))
+	_, err := h.Write([]byte(content))
 	if err != nil {
 		return "", err
 	}
 
-	return fmt.Sprintf("%x", mac.Sum(nil)), nil
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
 func req(method string, url string, param string) ([]byte, error) {
@@ -472,23 +470,5 @@ func handle(bs []byte, err error) error {
 		return errors.Wrap(err, util.FuncName())
 	}
 
-	return nil
-}
-
-// decode convert an arbitrary map[string]interface{} into a Go structure.
-func decode(m map[string]interface{}, i interface{}) error {
-	decoder, err := mapstructure.NewDecoder(
-		&mapstructure.DecoderConfig{
-			WeaklyTypedInput: true,
-			Result:           i,
-		})
-	if err != nil {
-		return errors.Wrap(err, util.FuncName())
-	}
-
-	err = decoder.Decode(m)
-	if err != nil {
-		return errors.Wrap(err, util.FuncName())
-	}
 	return nil
 }
