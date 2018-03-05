@@ -10,6 +10,7 @@ import (
 
 	"github.com/modood/cts/dingtalk"
 	"github.com/modood/cts/gateio"
+	"github.com/modood/cts/huobi"
 	"github.com/modood/cts/strategy"
 	"github.com/modood/cts/trade"
 	"github.com/modood/cts/util"
@@ -45,12 +46,20 @@ func main() {
 			Usage: "strategy name. available: " + strings.Join(strategy.Available(), ", "),
 		},
 		cli.StringFlag{
-			Name:  "key",
-			Usage: "your api key",
+			Name:  "gkey",
+			Usage: "your gateio api key",
 		},
 		cli.StringFlag{
-			Name:  "secret",
-			Usage: "your secret key",
+			Name:  "gsecret",
+			Usage: "your gateio secret key",
+		},
+		cli.StringFlag{
+			Name:  "hkey",
+			Usage: "your huobi api key",
+		},
+		cli.StringFlag{
+			Name:  "hsecret",
+			Usage: "your huobi secret key",
 		},
 		cli.StringFlag{
 			Name:  "dingtoken",
@@ -66,7 +75,8 @@ func main() {
 func action(c *cli.Context) error {
 	log.Println("running...")
 
-	gateio.Init(c.String("key"), c.String("secret"))
+	gateio.Init(c.String("gkey"), c.String("gsecret"))
+	huobi.Init(c.String("hkey"), c.String("hsecret"))
 	dingtalk.Init(c.String("dingtoken"))
 	currency := c.String("currency")
 	stra := c.String("strategy")
@@ -120,8 +130,34 @@ func exec(signal uint8, currency string) error {
 		if err != nil {
 			return errors.Wrap(err, util.FuncName())
 		}
+		err = huobi.AllIn("BUY", currency, false)
+		if err != nil {
+			return errors.Wrap(err, util.FuncName())
+		}
 	case strategy.SigFall:
 		err := trade.AllOut(currency)
+		if err != nil {
+			return errors.Wrap(err, util.FuncName())
+		}
+		err = huobi.AllIn("SELL", currency, false)
+		if err != nil {
+			return errors.Wrap(err, util.FuncName())
+		}
+	case strategy.SigBull:
+		err := trade.AllIn(currency)
+		if err != nil {
+			return errors.Wrap(err, util.FuncName())
+		}
+		err = huobi.AllIn("BUY", currency, true)
+		if err != nil {
+			return errors.Wrap(err, util.FuncName())
+		}
+	case strategy.SigBear:
+		err := trade.AllOut(currency)
+		if err != nil {
+			return errors.Wrap(err, util.FuncName())
+		}
+		err = huobi.AllIn("SELL", currency, true)
 		if err != nil {
 			return errors.Wrap(err, util.FuncName())
 		}

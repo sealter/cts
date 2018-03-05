@@ -5,6 +5,8 @@ const (
 	SigNone = iota // none
 	SigRise        // going up
 	SigFall        // going down
+	SigBull        // a bull market
+	SigBear        // a bear market
 )
 
 // Strategy is trading strategy
@@ -40,5 +42,7 @@ func Signals() []uint8 {
 		SigNone,
 		SigRise,
 		SigFall,
+		SigBull,
+		SigBear,
 	}
 }

@@ -38,10 +38,17 @@ func (s RippleDoge) Signal() (uint8, error) {
 		"↓, doge: " + strconv.FormatFloat(doge.PercentChange, 'f', 4, 64) +
 		"%, xrp: " + strconv.FormatFloat(xrp.PercentChange, 'f', 4, 64) + "%")
 
-	if rise > 44 && doge.PercentChange > 5 && xrp.PercentChange > 5 {
+	// a simple strategy, just one example
+	if rise > 66 {
+		if doge.PercentChange > 4.4 && xrp.PercentChange > 4.4 {
+			return SigBull, nil
+		}
 		return SigRise, nil
 	}
-	if rise < 44 || (doge.PercentChange < -5 && xrp.PercentChange < -5) {
+	if rise < 44 {
+		if doge.PercentChange < -4.4 && xrp.PercentChange < -4.4 {
+			return SigBear, nil
+		}
 		return SigFall, nil
 	}
 
