@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/mitchellh/mapstructure"
+	"github.com/modood/cts/dingtalk"
 	"github.com/modood/cts/util"
 	"github.com/pkg/errors"
 )
@@ -38,6 +39,16 @@ type (
 			Type     string
 			Balance  float64
 		}
+	}
+
+	// Carry ...
+	Carry struct {
+		Trade                float64
+		Frozen               float64
+		TransferOutAvailable float64
+		LoanAvailable        float64
+		Loan                 float64
+		Interest             float64
 	}
 
 	// OpenOrder ...
@@ -357,6 +368,13 @@ func Repay(currency, symbol string) error {
 			errs = append(errs, err.Error()+"(ID: "+strconv.FormatUint(v.ID, 10)+")")
 			continue
 		}
+
+		msg := fmt.Sprintf("%s\n类型：%s\n品种：%s\n数量：%.4f %s",
+			time.Now().Format("2006-01-02 15:04:05"), "repay", currency, v.LoanAmount+v.InterestAmount, symbol)
+		err = dingtalk.Push(msg)
+		if err != nil {
+			log.Println(err)
+		}
 	}
 	if len(errs) != 0 {
 		return errors.Wrap(errors.New(strings.Join(errs, ";")), util.FuncName())
@@ -383,6 +401,70 @@ func CancelAll(currency string) error {
 	if len(errs) != 0 {
 		return errors.Wrap(errors.New(strings.Join(errs, ";")), util.FuncName())
 	}
+	return nil
+}
+
+// AllIn all in
+func AllIn(cmd, currency string, isMargin bool) error {
+	buySymbol, sellSymbol, err := symbols(currency)
+	if err != nil {
+		return errors.Wrap(err, util.FuncName())
+	}
+	switch cmd {
+	case "BUY": // do nothing
+	case "SELL":
+		buySymbol, sellSymbol = sellSymbol, buySymbol
+	default:
+		return errors.Wrap(errors.New("invalid cmd, it should be `BUY` or `SELL`"), util.FuncName())
+	}
+
+	err = CancelAll(currency)
+	if err != nil {
+		return errors.Wrap(err, util.FuncName())
+	}
+
+t:
+	c, err := carry(currency, sellSymbol)
+	if err != nil {
+		return errors.Wrap(err, util.FuncName())
+	}
+	if isMargin && c.LoanAvailable > 0 {
+		_, err = Borrow(currency, sellSymbol, c.LoanAvailable)
+		if err != nil {
+			return errors.Wrap(err, util.FuncName())
+		}
+
+		msg := fmt.Sprintf("%s\n类型：%s\n品种：%s\n数量：%.4f %s",
+			time.Now().Format("2006-01-02 15:04:05"), "borrow", currency, c.LoanAvailable, sellSymbol)
+		err = dingtalk.Push(msg)
+		if err != nil {
+			log.Println(err)
+		}
+
+		goto t
+	}
+
+	if c.Trade <= 0.00000001 {
+		return nil
+	}
+
+	_, err = MarginTrade(cmd, currency, c.Trade)
+	if err != nil {
+		return errors.Wrap(err, util.FuncName())
+	}
+
+	msg := fmt.Sprintf("%s\n类型：%s\n品种：%s\n数量：%.4f %s",
+		time.Now().Format("2006-01-02 15:04:05"), strings.ToLower(cmd), currency, c.Trade, sellSymbol)
+	err = dingtalk.Push(msg)
+	if err != nil {
+		log.Println(err)
+	}
+
+	err = Repay(currency, buySymbol)
+	if err != nil {
+		return errors.Wrap(err, util.FuncName())
+	}
+
 	return nil
 }
 
@@ -522,4 +604,42 @@ func handle(bs []byte, err error) error {
 	}
 
 	return nil
+}
+
+func carry(currency, symbol string) (*Carry, error) {
+	a, err := MarginAccount(currency)
+	if err != nil {
+		return nil, errors.Wrap(err, util.FuncName())
+	}
+
+	c := Carry{}
+	for _, v := range a.List {
+		if v.Currency != symbol {
+			continue
+		}
+		switch v.Type {
+		case "trade":
+			c.Trade = v.Balance
+		case "frozen":
+			c.Frozen = v.Balance
+		case "transfer-out-available":
+			c.TransferOutAvailable = v.Balance
+		case "loan-available":
+			c.LoanAvailable = v.Balance
+		case "loan":
+			c.Loan = v.Balance
+		case "interest":
+			c.Interest = v.Balance
+		}
+	}
+	return &c, nil
+}
+
+func symbols(currency string) (string, string, error) {
+	s := strings.Split(currency, "_")
+	if len(s) != 2 {
+		return "", "", errors.Wrap(errors.New("invalid currency, A valid currency should look like: btc_usdt"), util.FuncName())
+	}
+
+	return s[0], s[1], nil
 }
