@@ -124,13 +124,18 @@ func signal(stra string) (uint8, error) {
 }
 
 func exec(signal uint8, currency string) error {
+	s, err := huobi.NewSymbol(currency)
+	if err != nil {
+		return errors.Wrap(err, util.FuncName())
+	}
+
 	switch signal {
 	case strategy.SigRise:
 		err := trade.AllIn(currency)
 		if err != nil {
 			return errors.Wrap(err, util.FuncName())
 		}
-		err = huobi.AllIn("BUY", currency, false)
+		err = s.AllIn("BUY", false)
 		if err != nil {
 			return errors.Wrap(err, util.FuncName())
 		}
@@ -139,7 +144,7 @@ func exec(signal uint8, currency string) error {
 		if err != nil {
 			return errors.Wrap(err, util.FuncName())
 		}
-		err = huobi.AllIn("SELL", currency, false)
+		err = s.AllIn("SELL", false)
 		if err != nil {
 			return errors.Wrap(err, util.FuncName())
 		}
@@ -148,7 +153,7 @@ func exec(signal uint8, currency string) error {
 		if err != nil {
 			return errors.Wrap(err, util.FuncName())
 		}
-		err = huobi.AllIn("BUY", currency, true)
+		err = s.AllIn("BUY", true)
 		if err != nil {
 			return errors.Wrap(err, util.FuncName())
 		}
@@ -157,7 +162,7 @@ func exec(signal uint8, currency string) error {
 		if err != nil {
 			return errors.Wrap(err, util.FuncName())
 		}
-		err = huobi.AllIn("SELL", currency, true)
+		err = s.AllIn("SELL", true)
 		if err != nil {
 			return errors.Wrap(err, util.FuncName())
 		}

@@ -25,6 +25,16 @@ import (
 )
 
 type (
+	// Symbol ...
+	Symbol struct {
+		Name            string
+		BaseCurrency    string `mapstructure:"base-currency" json:"base-currency"`
+		QuoteCurrency   string `mapstructure:"quote-currency" json:"quote-currency"`
+		PricePrecision  int    `mapstructure:"price-precision" json:"price-precision"`
+		AmountPrecision int    `mapstructure:"amount-precision" json:"amount-precision"`
+		SymbolPartition string `mapstructure:"symbol-partition" json:"symbol-partition"`
+	}
+
 	// Account ...
 	Account struct {
 		ID       uint64
@@ -49,6 +59,14 @@ type (
 		LoanAvailable        float64
 		Loan                 float64
 		Interest             float64
+	}
+
+	// Limit ...
+	Limit struct {
+		BuyGT  float64 `mapstructure:"market-buy-order-must-greater-than" json:"market-buy-order-must-greater-than"`
+		BuyLT  float64 `mapstructure:"market-buy-order-must-less-than" json:"market-buy-order-must-less-than"`
+		SellGT float64 `mapstructure:"market-sell-order-must-greater-than" json:"market-sell-order-must-greater-than"`
+		SellLT float64 `mapstructure:"market-sell-order-must-less-than" json:"market-sell-order-must-less-than"`
 	}
 
 	// OpenOrder ...
@@ -134,10 +152,14 @@ type (
 )
 
 var (
-	//json = jsoniter.ConfigCompatibleWithStandardLibrary
-
 	key    string // your api key
 	secret string // your secret key
+
+	errInvalidSymbol     = errors.New("invalid symbol name, A valid name should look like: btc_usdt")
+	errInvalidCurrency   = errors.New("invalid currency")
+	errUnsupportedSymbol = errors.New("unsupported symbol")
+	errNoMarginAccount   = errors.New("no margin account")
+	errUnkownTradeType   = errors.New("unknown trade type, it should be `BUY` or `SELL`")
 )
 
 // Init set apikey and secretkey
@@ -146,173 +168,198 @@ func Init(apikey, secretkey string) {
 	secret = secretkey
 }
 
-// MarginAccount return margin account information
-func MarginAccount(currency string) (*Account, error) {
-	params := make(map[string]string)
-
-	currency = hCurrency(currency)
-	if currency != "" {
-		params["symbol"] = currency
-	}
-
-	bs, err := req("GET", "https://api.huobi.pro/v1/margin/accounts/balance", params)
-	if err := handle(bs, err); err != nil {
-		return nil, errors.Wrap(err, util.FuncName())
-	}
-
-	m := make(map[string]interface{})
-	err = json.Unmarshal(bs, &m)
+// Symbols return all support symbol
+func Symbols() ([]Symbol, error) {
+	m, err := req("GET", "https://api.huobi.pro/v1/common/symbols", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, util.FuncName())
 	}
 
-	r := struct {
-		Data []Account
-	}{}
+	r := struct{ Data []Symbol }{}
+	if err = util.Decode(m, &r); err != nil {
+		return nil, errors.Wrap(err, util.FuncName())
+	}
+
+	return r.Data, nil
+}
+
+// OrderDetail return order detail by ID
+func OrderDetail(ID uint64) (*OpenOrder, error) {
+	m, err := req("GET", "https://api.huobi.pro/v1/order/orders/"+
+		strconv.FormatUint(ID, 10), nil)
+	if err != nil {
+		return nil, errors.Wrap(err, util.FuncName())
+	}
+
+	r := struct{ Data OpenOrder }{}
+	if err = util.Decode(m, &r); err != nil {
+		return nil, errors.Wrap(err, util.FuncName())
+	}
+
+	return &r.Data, nil
+}
+
+// NewSymbol return new symbol
+func NewSymbol(name string) (*Symbol, error) {
+	n := strings.Split(name, "_")
+	if len(n) != 2 {
+		return nil, errors.Wrap(errInvalidSymbol, util.FuncName())
+	}
+
+	ss, err := Symbols()
+	if err != nil {
+		return nil, errors.Wrap(err, util.FuncName())
+	}
+	var s *Symbol
+	for _, v := range ss {
+		if n[0] == v.BaseCurrency && n[1] == v.QuoteCurrency {
+			s = &v
+			s.Name = v.BaseCurrency + v.QuoteCurrency
+			break
+		}
+	}
+	if s == nil {
+		return nil, errors.Wrap(errUnsupportedSymbol, util.FuncName())
+	}
+
+	return s, nil
+}
+
+// Limit return trade limit of a symbol
+func (s *Symbol) Limit() (*Limit, error) {
+	m, err := req("GET", "https://api.huobi.pro/v1/common/exchange",
+		map[string]string{"symbol": s.Name})
+	if err != nil {
+		return nil, errors.Wrap(err, util.FuncName())
+	}
+
+	r := struct{ Data Limit }{}
+	if err = util.Decode(m, &r); err != nil {
+		return nil, errors.Wrap(err, util.FuncName())
+	}
+
+	return &r.Data, nil
+}
+
+// Account return margin account
+func (s *Symbol) Account() (*Account, error) {
+	m, err := req("GET", "https://api.huobi.pro/v1/margin/accounts/balance",
+		map[string]string{"symbol": s.Name})
+	if err != nil {
+		return nil, errors.Wrap(err, util.FuncName())
+	}
+
+	r := struct{ Data []Account }{}
 	if err = util.Decode(m, &r); err != nil {
 		return nil, errors.Wrap(err, util.FuncName())
 	}
 	if len(r.Data) == 0 {
-		return nil, errors.Wrap(errors.New("no margin account"), util.FuncName())
+		return nil, errors.Wrap(errNoMarginAccount, util.FuncName())
 	}
 
 	return &r.Data[0], nil
 }
 
-// Orders return finished orders
-func Orders(currency string) ([]Order, error) {
-	bs, err := req("GET", "https://api.huobi.pro/v1/order/matchresults",
-		map[string]string{
-			"symbol": hCurrency(currency),
-		})
-	if err := handle(bs, err); err != nil {
-		return nil, errors.Wrap(err, util.FuncName())
-	}
-
-	m := make(map[string]interface{})
-	err = json.Unmarshal(bs, &m)
+// Carry return balance of specific currency
+func (s *Symbol) Carry(currency string) (*Carry, error) {
+	a, err := s.Account()
 	if err != nil {
 		return nil, errors.Wrap(err, util.FuncName())
 	}
 
-	t := struct {
-		Orders []Order `mapstructure:"data"`
-	}{}
-	if err := util.Decode(m, &t); err != nil {
+	c := Carry{}
+	for _, v := range a.List {
+		if v.Currency != currency {
+			continue
+		}
+		switch v.Type {
+		case "trade":
+			c.Trade = v.Balance
+		case "frozen":
+			c.Frozen = v.Balance
+		case "transfer-out-available":
+			c.TransferOutAvailable = v.Balance
+		case "loan-available":
+			c.LoanAvailable = v.Balance
+		case "loan":
+			c.Loan = v.Balance
+		case "interest":
+			c.Interest = v.Balance
+		}
+	}
+	return &c, nil
+}
+
+// Orders return finished orders
+func (s *Symbol) Orders() ([]Order, error) {
+	m, err := req("GET", "https://api.huobi.pro/v1/order/matchresults",
+		map[string]string{"symbol": s.Name})
+	if err != nil {
 		return nil, errors.Wrap(err, util.FuncName())
 	}
 
-	return t.Orders, nil
+	r := struct{ Data []Order }{}
+	if err := util.Decode(m, &r); err != nil {
+		return nil, errors.Wrap(err, util.FuncName())
+	}
+
+	return r.Data, nil
 }
 
 // OpenOrders return pendding orders
-func OpenOrders(currency string) ([]OpenOrder, error) {
-	bs, err := req("GET", "https://api.huobi.pro/v1/order/orders",
-		map[string]string{
-			"symbol": hCurrency(currency),
-			"states": "pre-submitted,submitted,partial-filled",
-		})
-	if err := handle(bs, err); err != nil {
-		return nil, errors.Wrap(err, util.FuncName())
+func (s *Symbol) OpenOrders(state string) ([]OpenOrder, error) {
+	if state == "" {
+		state = "pre-submitted,submitted,partial-filled"
 	}
 
-	m := make(map[string]interface{})
-	err = json.Unmarshal(bs, &m)
+	m, err := req("GET", "https://api.huobi.pro/v1/order/orders",
+		map[string]string{
+			"symbol": s.Name,
+			"states": state,
+		})
 	if err != nil {
 		return nil, errors.Wrap(err, util.FuncName())
 	}
 
-	t := struct {
-		Orders []OpenOrder `mapstructure:"data"`
-	}{}
-	if err := util.Decode(m, &t); err != nil {
+	r := struct{ Data []OpenOrder }{}
+	if err := util.Decode(m, &r); err != nil {
 		return nil, errors.Wrap(err, util.FuncName())
 	}
 
-	return t.Orders, nil
+	return r.Data, nil
 }
 
 // BorrowOrders return borrow orders
-func BorrowOrders(currency string) ([]BorrowOrder, error) {
-	bs, err := req("GET", "https://api.huobi.pro/v1/margin/loan-orders",
+func (s *Symbol) BorrowOrders(state string) ([]BorrowOrder, error) {
+	m, err := req("GET", "https://api.huobi.pro/v1/margin/loan-orders",
 		map[string]string{
-			"symbol": hCurrency(currency),
+			"symbol": s.Name,
+			"states": state,
 		})
-	if err := handle(bs, err); err != nil {
-		return nil, errors.Wrap(err, util.FuncName())
-	}
-
-	m := make(map[string]interface{})
-	err = json.Unmarshal(bs, &m)
 	if err != nil {
 		return nil, errors.Wrap(err, util.FuncName())
 	}
 
-	t := struct {
-		Orders []BorrowOrder `mapstructure:"data"`
-	}{}
-	if err := util.Decode(m, &t); err != nil {
+	r := struct{ Data []BorrowOrder }{}
+	if err := util.Decode(m, &r); err != nil {
 		return nil, errors.Wrap(err, util.FuncName())
 	}
 
-	return t.Orders, nil
-}
-
-// MarginTrade place new margin order
-func MarginTrade(cmd, currency string, amount float64) (uint64, error) {
-	a, err := MarginAccount(currency)
-	if err != nil {
-		return 0, errors.Wrap(err, util.FuncName())
-	}
-
-	params := map[string]string{
-		"account-id": strconv.FormatUint(a.ID, 10),
-		"amount":     strconv.FormatFloat(amount, 'f', -1, 64),
-		"source":     "margin-api",
-		"symbol":     hCurrency(currency),
-	}
-
-	switch cmd {
-	case "BUY":
-		params["type"] = "buy-market"
-	case "SELL":
-		params["type"] = "sell-market"
-	case "TEST":
-		params["price"] = "100"
-		params["type"] = "buy-limit"
-	default:
-		return 0, errors.Wrap(errors.New("unknown trade type"), util.FuncName())
-	}
-
-	bs, err := req("POST", "https://api.huobi.pro/v1/order/orders/place", params)
-	if err := handle(bs, err); err != nil {
-		return 0, errors.Wrap(err, util.FuncName())
-	}
-
-	m := make(map[string]interface{})
-	err = json.Unmarshal(bs, &m)
-	if err != nil {
-		return 0, errors.Wrap(err, util.FuncName())
-	}
-
-	t := struct {
-		ID string `mapstructure:"data"`
-	}{}
-	if err := util.Decode(m, &t); err != nil {
-		return 0, errors.Wrap(err, util.FuncName())
-	}
-
-	return strconv.ParseUint(t.ID, 10, 64)
+	return r.Data, nil
 }
 
 // BorrowAvailable return available amount to borrow
-func BorrowAvailable(currency, symbol string) (float64, error) {
-	a, err := MarginAccount(currency)
+func (s *Symbol) BorrowAvailable(currency string) (float64, error) {
+	if currency != s.BaseCurrency && currency != s.QuoteCurrency {
+		return 0, errors.Wrap(errInvalidCurrency, util.FuncName())
+	}
+
+	a, err := s.Account()
 	if err != nil {
 		return 0, errors.Wrap(err, util.FuncName())
 	}
 	for _, v := range a.List {
-		if v.Type == "loan-available" && v.Currency == symbol {
+		if v.Type == "loan-available" && v.Currency == currency {
 			return v.Balance, nil
 		}
 	}
@@ -320,57 +367,62 @@ func BorrowAvailable(currency, symbol string) (float64, error) {
 }
 
 // Borrow borrow money
-func Borrow(currency, symbol string, amount float64) (uint64, error) {
-	params := map[string]string{
-		"symbol":   hCurrency(currency),
-		"currency": symbol, // lol, funny ^_^. currency => symbol, symbol => currency
-		"amount":   floor(amount, 3),
+func (s *Symbol) Borrow(currency string, amount float64) error {
+	if currency != s.BaseCurrency && currency != s.QuoteCurrency {
+		return errors.Wrap(errInvalidCurrency, util.FuncName())
 	}
 
-	bs, err := req("POST", "https://api.huobi.pro/v1/margin/orders", params)
-	if err := handle(bs, err); err != nil {
-		return 0, errors.Wrap(err, util.FuncName())
-	}
-
-	m := make(map[string]interface{})
-	err = json.Unmarshal(bs, &m)
+	_, err := req("POST", "https://api.huobi.pro/v1/margin/orders",
+		map[string]string{
+			"symbol":   s.Name,
+			"currency": currency,
+			"amount":   floor(amount, 3),
+		})
 	if err != nil {
-		return 0, errors.Wrap(err, util.FuncName())
+		return errors.Wrap(err, util.FuncName())
 	}
 
-	t := struct {
-		ID string `mapstructure:"data"`
-	}{}
-	if err := util.Decode(m, &t); err != nil {
-		return 0, errors.Wrap(err, util.FuncName())
+	msg := fmt.Sprintf("%s\n类型：%s\n品种：%s\n数量：%.4f %s",
+		time.Now().Format("2006-01-02 15:04:05"),
+		"borrow", s.Name, amount, currency)
+	err = dingtalk.Push(msg)
+	if err != nil {
+		log.Println(err)
 	}
 
-	return strconv.ParseUint(t.ID, 10, 64)
+	return nil
 }
 
-// Repay all debt
-func Repay(currency, symbol string) error {
-	bos, err := BorrowOrders(currency)
+// Repay repay all debt
+func (s *Symbol) Repay(currency string) error {
+	if currency != s.BaseCurrency && currency != s.QuoteCurrency {
+		return errors.Wrap(errInvalidCurrency, util.FuncName())
+	}
+
+	bos, err := s.BorrowOrders("accrual")
 	if err != nil {
 		return errors.Wrap(err, util.FuncName())
 	}
 
 	var errs []string
 	for _, v := range bos {
-		if v.Currency != symbol || v.State != "accrual" {
+		if v.Currency != currency {
 			continue
 		}
-		bs, err := req("POST", "https://api.huobi.pro/v1/margin/orders/"+strconv.FormatUint(v.ID, 10)+"/repay",
+
+		_, err := req("POST", "https://api.huobi.pro/v1/margin/orders/"+
+			strconv.FormatUint(v.ID, 10)+"/repay",
 			map[string]string{
 				"amount": floor(v.LoanAmount+v.InterestAmount, 8),
 			})
-		if err := handle(bs, err); err != nil {
+		if err != nil {
 			errs = append(errs, err.Error()+"(ID: "+strconv.FormatUint(v.ID, 10)+")")
 			continue
 		}
 
-		msg := fmt.Sprintf("%s\n类型：%s\n品种：%s\n数量：%.4f %s",
-			time.Now().Format("2006-01-02 15:04:05"), "repay", currency, v.LoanAmount+v.InterestAmount, symbol)
+		msg := fmt.Sprintf("%s\n类型：%s\n品种：%s\n数量：%.4f %s\n利息：%.6f %s",
+			time.Now().Format("2006-01-02 15:04:05"),
+			"repay", s.Name, v.LoanAmount, currency, v.InterestAmount, currency)
 		err = dingtalk.Push(msg)
 		if err != nil {
 			log.Println(err)
@@ -382,18 +434,76 @@ func Repay(currency, symbol string) error {
 	return nil
 }
 
+// Trade place new margin order
+func (s *Symbol) Trade(cmd string, amount float64) error {
+	a, err := s.Account()
+	if err != nil {
+		return errors.Wrap(err, util.FuncName())
+	}
+
+	params := map[string]string{
+		"account-id": strconv.FormatUint(a.ID, 10),
+		"source":     "margin-api",
+		"symbol":     s.Name,
+		"amount":     floor(amount, s.AmountPrecision),
+	}
+
+	switch cmd {
+	case "BUY":
+		params["type"] = "buy-market"
+	case "SELL":
+		params["type"] = "sell-market"
+	/* testing */
+	case "TESTBUY":
+		params["price"] = "1"
+		params["type"] = "buy-limit"
+	case "TESTSELL":
+		params["price"] = "100000"
+		params["type"] = "sell-limit"
+	default:
+		return errors.Wrap(errUnkownTradeType, util.FuncName())
+	}
+
+	m, err := req("POST", "https://api.huobi.pro/v1/order/orders/place", params)
+	if err != nil {
+		return errors.Wrap(err, util.FuncName())
+	}
+
+	r := struct{ Data uint64 }{}
+	if err := util.Decode(m, &r); err != nil {
+		return errors.Wrap(err, util.FuncName())
+	}
+
+	time.Sleep(time.Second * 5) // await until order state changed: submitted => filled
+	o, err := OrderDetail(r.Data)
+	if err := util.Decode(m, &r); err != nil {
+		return errors.Wrap(err, util.FuncName())
+	}
+
+	msg := fmt.Sprintf("%s\n订单：%d\n状态：%s\n类型：%s\n品种：%s\n价格：$%.2f\n数量：$%.2f",
+		time.Now().Format("2006-01-02 15:04:05"), o.ID, o.State,
+		strings.ToLower(cmd), o.Symbol, o.FieldCashAmount/o.FieldAmount, o.FieldCashAmount)
+
+	err = dingtalk.Push(msg)
+	if err != nil {
+		log.Println(err)
+	}
+
+	return nil
+}
+
 // CancelAll cancel all open orders
-func CancelAll(currency string) error {
-	oos, err := OpenOrders(currency)
+func (s *Symbol) CancelAll() error {
+	oos, err := s.OpenOrders("")
 	if err != nil {
 		return errors.Wrap(err, util.FuncName())
 	}
 
 	var errs []string
 	for _, v := range oos {
-		bs, err := req("POST", "https://api.huobi.pro/v1/order/orders/"+
-			strconv.FormatUint(v.ID, 10)+"/submitcancel", map[string]string{})
-		if err := handle(bs, err); err != nil {
+		_, err := req("POST", "https://api.huobi.pro/v1/order/orders/"+
+			strconv.FormatUint(v.ID, 10)+"/submitcancel", nil)
+		if err != nil {
 			errs = append(errs, err.Error()+"(ID: "+strconv.FormatUint(v.ID, 10)+")")
 			continue
 		}
@@ -405,62 +515,61 @@ func CancelAll(currency string) error {
 }
 
 // AllIn all in
-func AllIn(cmd, currency string, isMargin bool) error {
-	buySymbol, sellSymbol, err := symbols(currency)
-	if err != nil {
-		return errors.Wrap(err, util.FuncName())
-	}
+func (s *Symbol) AllIn(cmd string, isMargin bool) error {
+	bc, qc := s.BaseCurrency, s.QuoteCurrency
 	switch cmd {
 	case "BUY": // do nothing
 	case "SELL":
-		buySymbol, sellSymbol = sellSymbol, buySymbol
+		bc, qc = qc, bc
 	default:
-		return errors.Wrap(errors.New("invalid cmd, it should be `BUY` or `SELL`"), util.FuncName())
+		return errors.Wrap(errUnkownTradeType, util.FuncName())
 	}
 
-	err = CancelAll(currency)
+	err := s.CancelAll()
 	if err != nil {
 		return errors.Wrap(err, util.FuncName())
 	}
 
 t:
-	c, err := carry(currency, sellSymbol)
+	c, err := s.Carry(qc)
 	if err != nil {
 		return errors.Wrap(err, util.FuncName())
 	}
 	if isMargin && c.LoanAvailable > 0 {
-		_, err = Borrow(currency, sellSymbol, c.LoanAvailable)
+		err = s.Borrow(qc, c.LoanAvailable)
 		if err != nil {
 			return errors.Wrap(err, util.FuncName())
-		}
-
-		msg := fmt.Sprintf("%s\n类型：%s\n品种：%s\n数量：%.4f %s",
-			time.Now().Format("2006-01-02 15:04:05"), "borrow", currency, c.LoanAvailable, sellSymbol)
-		err = dingtalk.Push(msg)
-		if err != nil {
-			log.Println(err)
 		}
 
 		goto t
 	}
 
-	if c.Trade <= 0.00000001 {
-		return nil
+	// check trade amount limit
+	l, err := s.Limit()
+	if err != nil {
+		return errors.Wrap(err, util.FuncName())
+	}
+	if cmd == "BUY" {
+		if c.Trade < l.BuyGT {
+			return nil
+		} else if c.Trade > l.BuyLT {
+			c.Trade = l.BuyLT
+		}
+	}
+	if cmd == "SELL" {
+		if c.Trade < l.SellGT {
+			return nil
+		} else if c.Trade > l.SellLT {
+			c.Trade = l.SellLT
+		}
 	}
 
-	_, err = MarginTrade(cmd, currency, c.Trade)
+	err = s.Trade(cmd, c.Trade)
 	if err != nil {
 		return errors.Wrap(err, util.FuncName())
 	}
 
-	msg := fmt.Sprintf("%s\n类型：%s\n品种：%s\n数量：%.4f %s",
-		time.Now().Format("2006-01-02 15:04:05"), strings.ToLower(cmd), currency, c.Trade, sellSymbol)
-	err = dingtalk.Push(msg)
-	if err != nil {
-		log.Println(err)
-	}
-
-	err = Repay(currency, buySymbol)
+	err = s.Repay(bc)
 	if err != nil {
 		return errors.Wrap(err, util.FuncName())
 	}
@@ -478,7 +587,7 @@ func sign(content string) (string, error) {
 	return base64.StdEncoding.EncodeToString(h.Sum(nil)), nil
 }
 
-func req(method, address string, params map[string]string) ([]byte, error) {
+func req(method, address string, params map[string]string) (map[string]interface{}, error) {
 	u, err := url.Parse(address)
 	if err != nil {
 		return nil, errors.Wrap(err, util.FuncName())
@@ -486,7 +595,7 @@ func req(method, address string, params map[string]string) ([]byte, error) {
 	host := u.Hostname()
 	path := u.EscapedPath()
 
-	m := map[string]string{
+	compute := map[string]string{
 		"AccessKeyId":      key,
 		"SignatureMethod":  "HmacSHA256",
 		"SignatureVersion": "2",
@@ -498,7 +607,7 @@ func req(method, address string, params map[string]string) ([]byte, error) {
 	switch strings.ToUpper(method) {
 	case "GET":
 		for k, v := range params {
-			m[k] = v
+			compute[k] = v
 		}
 		ctype = "application/x-www-form-urlencoded"
 	default:
@@ -511,7 +620,7 @@ func req(method, address string, params map[string]string) ([]byte, error) {
 		reader = bytes.NewBuffer(bs)
 	}
 
-	query := querystring(m)
+	query := querystring(compute)
 	signature, err = sign(method + "\n" + host + "\n" + path + "\n" + query)
 	if err != nil {
 		return nil, errors.Wrap(err, util.FuncName())
@@ -542,8 +651,17 @@ func req(method, address string, params map[string]string) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, util.FuncName())
 	}
+	if err := handle(bs, err); err != nil {
+		return nil, errors.Wrap(err, util.FuncName())
+	}
 
-	return bs, nil
+	m := make(map[string]interface{})
+	err = json.Unmarshal(bs, &m)
+	if err != nil {
+		return nil, errors.Wrap(err, util.FuncName())
+	}
+
+	return m, nil
 }
 
 func querystring(m map[string]string) string {
@@ -561,10 +679,6 @@ func querystring(m map[string]string) string {
 	}
 
 	return strings.Join(q, "&")
-}
-
-func hCurrency(currency string) string {
-	return strings.Replace(currency, "_", "", -1)
 }
 
 func floor(f float64, prec int) string {
@@ -604,42 +718,4 @@ func handle(bs []byte, err error) error {
 	}
 
 	return nil
-}
-
-func carry(currency, symbol string) (*Carry, error) {
-	a, err := MarginAccount(currency)
-	if err != nil {
-		return nil, errors.Wrap(err, util.FuncName())
-	}
-
-	c := Carry{}
-	for _, v := range a.List {
-		if v.Currency != symbol {
-			continue
-		}
-		switch v.Type {
-		case "trade":
-			c.Trade = v.Balance
-		case "frozen":
-			c.Frozen = v.Balance
-		case "transfer-out-available":
-			c.TransferOutAvailable = v.Balance
-		case "loan-available":
-			c.LoanAvailable = v.Balance
-		case "loan":
-			c.Loan = v.Balance
-		case "interest":
-			c.Interest = v.Balance
-		}
-	}
-	return &c, nil
-}
-
-func symbols(currency string) (string, string, error) {
-	s := strings.Split(currency, "_")
-	if len(s) != 2 {
-		return "", "", errors.Wrap(errors.New("invalid currency, A valid currency should look like: btc_usdt"), util.FuncName())
-	}
-
-	return s[0], s[1], nil
 }
