@@ -12,7 +12,6 @@ import (
 	"github.com/modood/cts/gateio"
 	"github.com/modood/cts/huobi"
 	"github.com/modood/cts/strategy"
-	"github.com/modood/cts/trade"
 	"github.com/modood/cts/util"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron"
@@ -38,28 +37,20 @@ func main() {
 	app.Author = "modood - https://github.com/modood"
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
-			Name:  "currency",
-			Usage: "currency name, base currency should be usdt(e.g., btc_usdt, xrp_usdt, etc.)",
+			Name:  "symbol",
+			Usage: "symbol name, quote symbol should be usdt(e.g., btc_usdt, xrp_usdt, etc.)",
 		},
 		cli.StringFlag{
 			Name:  "strategy",
 			Usage: "strategy name. available: " + strings.Join(strategy.Available(), ", "),
 		},
 		cli.StringFlag{
-			Name:  "gkey",
-			Usage: "your gateio api key",
-		},
-		cli.StringFlag{
-			Name:  "gsecret",
-			Usage: "your gateio secret key",
-		},
-		cli.StringFlag{
-			Name:  "hkey",
+			Name:  "key",
 			Usage: "your huobi api key",
 		},
 		cli.StringFlag{
-			Name:  "hsecret",
-			Usage: "your huobi secret key",
+			Name:  "secret",
+			Usage: "your huobi api secret",
 		},
 		cli.StringFlag{
 			Name:  "dingtoken",
@@ -75,10 +66,9 @@ func main() {
 func action(c *cli.Context) error {
 	log.Println("running...")
 
-	gateio.Init(c.String("gkey"), c.String("gsecret"))
-	huobi.Init(c.String("hkey"), c.String("hsecret"))
+	huobi.Init(c.String("key"), c.String("secret"))
 	dingtalk.Init(c.String("dingtoken"))
-	currency := c.String("currency")
+	symbol := c.String("symbol")
 	stra := c.String("strategy")
 
 	// cron job
@@ -88,19 +78,13 @@ func action(c *cli.Context) error {
 	for {
 		time.Sleep(time.Second * 5)
 
-		err := trade.Flush(currency)
-		if err != nil {
-			handle(err)
-			continue
-		}
-
 		sig, err := signal(stra)
 		if err != nil {
 			handle(err)
 			continue
 		}
 
-		err = exec(sig, currency)
+		err = exec(sig, symbol)
 		if err != nil {
 			handle(err)
 			continue
@@ -108,10 +92,10 @@ func action(c *cli.Context) error {
 	}
 }
 
-func signal(stra string) (uint8, error) {
-	s, ok := strategies[stra]
+func signal(str string) (uint8, error) {
+	s, ok := strategies[str]
 	if !ok {
-		err := fmt.Errorf("unknown strategy: %s", stra)
+		err := fmt.Errorf("unknown strategy: %s", str)
 		return strategy.SigNone, errors.Wrap(err, util.FuncName())
 	}
 
@@ -123,53 +107,28 @@ func signal(stra string) (uint8, error) {
 	return sig, nil
 }
 
-func exec(signal uint8, currency string) error {
-	s, err := huobi.NewSymbol(currency)
+func exec(signal uint8, symbol string) error {
+	s, err := huobi.NewSymbol(symbol)
 	if err != nil {
 		return errors.Wrap(err, util.FuncName())
 	}
 
 	switch signal {
 	case strategy.SigRise:
-		err := trade.AllIn(currency)
-		if err != nil {
-			return errors.Wrap(err, util.FuncName())
-		}
 		err = s.AllIn("BUY", false)
-		if err != nil {
-			return errors.Wrap(err, util.FuncName())
-		}
 	case strategy.SigFall:
-		err := trade.AllOut(currency)
-		if err != nil {
-			return errors.Wrap(err, util.FuncName())
-		}
 		err = s.AllIn("SELL", false)
-		if err != nil {
-			return errors.Wrap(err, util.FuncName())
-		}
 	case strategy.SigBull:
-		err := trade.AllIn(currency)
-		if err != nil {
-			return errors.Wrap(err, util.FuncName())
-		}
 		err = s.AllIn("BUY", true)
-		if err != nil {
-			return errors.Wrap(err, util.FuncName())
-		}
 	case strategy.SigBear:
-		err := trade.AllOut(currency)
-		if err != nil {
-			return errors.Wrap(err, util.FuncName())
-		}
 		err = s.AllIn("SELL", true)
-		if err != nil {
-			return errors.Wrap(err, util.FuncName())
-		}
 	case strategy.SigNone:
 		fallthrough
 	default:
 		// do nothing
+	}
+	if err != nil {
+		return errors.Wrap(err, util.FuncName())
 	}
 	return nil
 }
@@ -184,20 +143,6 @@ func schedule() *cron.Cron {
 	err := c.AddFunc("0 0 7-23,0 * * *", func() {
 		var retry uint16
 
-	asset:
-		a, err := gateio.MyAsset()
-		if err != nil {
-			if retry++; retry < 5 {
-				goto asset
-			}
-			e := dingtalk.Push(err.Error())
-			if e != nil {
-				log.Println(e, err)
-			}
-		}
-
-		retry = 0
-
 	trend:
 		rise, fall, err := gateio.Trend()
 		if err != nil {
@@ -210,8 +155,8 @@ func schedule() *cron.Cron {
 			}
 		}
 
-		msg := fmt.Sprintf("监控：%d Error(s)\n行情：%d↑, %d↓\n挂单：$%.2f\n余额：$%.2f\n资金：$%.2f\n合计：¥%.2f",
-			atomic.LoadUint64(&count), rise, fall, a.Pending, a.Balance, a.Total, a.TotalCNY)
+		msg := fmt.Sprintf("监控：%d Error(s)\n行情：%d↑, %d↓",
+			atomic.LoadUint64(&count), rise, fall)
 		atomic.StoreUint64(&count, 0)
 
 		err = dingtalk.Push(msg)
