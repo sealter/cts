@@ -5,7 +5,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -18,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/mitchellh/mapstructure"
 	"github.com/modood/cts/dingtalk"
 	"github.com/modood/cts/util"
@@ -160,6 +160,8 @@ var (
 	errUnsupportedSymbol = errors.New("unsupported symbol")
 	errNoMarginAccount   = errors.New("no margin account")
 	errUnkownTradeType   = errors.New("unknown trade type, it should be `BUY` or `SELL`")
+
+	json = jsoniter.ConfigCompatibleWithStandardLibrary
 )
 
 // Init set apikey and secretkey
