@@ -18,8 +18,10 @@ import (
 	"github.com/urfave/cli"
 )
 
-var strategies = strategy.Strategies()
-var count uint64
+var (
+	strategies = strategy.Strategies()
+	count      uint64
+)
 
 func init() {
 	tloc, err := time.LoadLocation("Asia/Chongqing")
@@ -141,21 +143,17 @@ func handle(err error) {
 func schedule() *cron.Cron {
 	c := cron.New()
 	err := c.AddFunc("0 0 7-23,0 * * *", func() {
-		var retry uint16
-
-	trend:
 		rise, fall, err := gateio.Trend()
 		if err != nil {
-			if retry++; retry < 5 {
-				goto trend
-			}
 			e := dingtalk.Push(err.Error())
 			if e != nil {
 				log.Println(e, err)
 			}
+			return
 		}
 
-		msg := fmt.Sprintf("监控：%d Error(s)\n行情：%d↑, %d↓",
+		msg := fmt.Sprintf("%s\n监控：%d Error(s)\n行情：%d↑, %d↓",
+			time.Now().Format("2006-01-02 15:04:05"),
 			atomic.LoadUint64(&count), rise, fall)
 		atomic.StoreUint64(&count, 0)
 

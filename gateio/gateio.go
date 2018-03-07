@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	jsoniter "github.com/json-iterator/go"
 	"github.com/mitchellh/mapstructure"
@@ -129,8 +130,14 @@ func Trend() (rise, fall uint16, err error) {
 }
 
 func get(address string) (map[string]interface{}, error) {
+	var retry int
+t:
 	resp, err := http.Get(address)
 	if err != nil {
+		if retry++; retry < 3 {
+			time.Sleep(time.Second * 10) // retry 10 seconds later
+			goto t
+		}
 		return nil, errors.Wrap(err, util.FuncName())
 	}
 
@@ -142,12 +149,20 @@ func get(address string) (map[string]interface{}, error) {
 
 	bs, err := ioutil.ReadAll(resp.Body)
 	if err := handle(bs, err); err != nil {
+		if retry++; retry < 3 {
+			time.Sleep(time.Second * 10) // retry 10 seconds later
+			goto t
+		}
 		return nil, errors.Wrap(err, util.FuncName())
 	}
 
 	m := make(map[string]interface{})
 	err = json.Unmarshal(bs, &m)
 	if err != nil {
+		if retry++; retry < 3 {
+			time.Sleep(time.Second * 10) // retry 10 seconds later
+			goto t
+		}
 		return nil, errors.Wrap(err, util.FuncName())
 	}
 
