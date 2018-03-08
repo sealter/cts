@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"log"
 	"math"
+	"net"
 	"net/http"
 	"net/url"
 	"sort"
@@ -635,7 +636,7 @@ func req(method, address string, params map[string]string) (map[string]interface
 	// huobi get parameters must be passing by querystring
 	address += "?" + query + "&Signature=" + url.QueryEscape(signature)
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: time.Duration(time.Second * 3)}
 
 	req, err := http.NewRequest(method, address, reader)
 	if err != nil {
@@ -643,8 +644,13 @@ func req(method, address string, params map[string]string) (map[string]interface
 	}
 	req.Header.Set("Content-Type", ctype)
 
+t:
 	resp, err := client.Do(req)
 	if err != nil {
+		if err, ok := err.(net.Error); (ok && err.Timeout()) ||
+			strings.Contains(err.Error(), "connection reset by peer") {
+			goto t
+		}
 		return nil, errors.Wrap(err, util.FuncName())
 	}
 

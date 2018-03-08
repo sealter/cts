@@ -4,7 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"io/ioutil"
+	"log"
+	"net"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/modood/cts/util"
 	"github.com/pkg/errors"
@@ -21,7 +25,7 @@ func Init(accessToken string) {
 
 // Push send notification
 func Push(text string) error {
-	client := &http.Client{}
+	client := &http.Client{Timeout: time.Duration(time.Second * 3)}
 
 	url := "https://oapi.dingtalk.com/robot/send?access_token=" + token
 
@@ -43,12 +47,21 @@ func Push(text string) error {
 
 	req.Header.Set("Content-Type", "application/json")
 
+t:
 	resp, err := client.Do(req)
 	if err != nil {
+		if err, ok := err.(net.Error); (ok && err.Timeout()) ||
+			strings.Contains(err.Error(), "connection reset by peer") {
+			goto t
+		}
 		return errors.Wrap(err, util.FuncName())
 	}
 
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Println(err)
+		}
+	}()
 
 	bs, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
