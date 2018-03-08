@@ -644,12 +644,15 @@ func req(method, address string, params map[string]string) (map[string]interface
 	}
 	req.Header.Set("Content-Type", ctype)
 
+	var retry int
 t:
 	resp, err := client.Do(req)
 	if err != nil {
 		if err, ok := err.(net.Error); (ok && err.Timeout()) ||
 			strings.Contains(err.Error(), "connection reset by peer") {
-			goto t
+			if retry++; retry < 3 {
+				goto t
+			}
 		}
 		return nil, errors.Wrap(err, util.FuncName())
 	}
