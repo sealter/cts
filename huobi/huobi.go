@@ -538,12 +538,17 @@ t:
 		return errors.Wrap(err, util.FuncName())
 	}
 	if isMargin && c.LoanAvailable > 0 {
-		err = s.Borrow(qc, c.LoanAvailable)
+		bos, err := s.BorrowOrders("accrual")
 		if err != nil {
 			return errors.Wrap(err, util.FuncName())
 		}
-
-		goto t
+		if len(bos) == 0 {
+			err = s.Borrow(qc, c.LoanAvailable)
+			if err != nil {
+				return errors.Wrap(err, util.FuncName())
+			}
+			goto t
+		}
 	}
 
 	// check trade amount limit
