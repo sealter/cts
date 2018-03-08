@@ -145,7 +145,7 @@ func schedule() *cron.Cron {
 	err := c.AddFunc("0 0 7-23,0 * * *", func() {
 		rise, fall, err := gateio.Trend()
 		if err != nil {
-			e := dingtalk.Push(err.Error())
+			e := dingtalk.Push(err.Error(), false)
 			if e != nil {
 				log.Println(e, err)
 			}
@@ -157,13 +157,13 @@ func schedule() *cron.Cron {
 			atomic.LoadUint64(&count), rise, fall)
 		atomic.StoreUint64(&count, 0)
 
-		err = dingtalk.Push(msg)
+		err = dingtalk.Push(msg, false)
 		if err != nil {
 			log.Println(err)
 		}
 	})
 	if err != nil {
-		e := dingtalk.Push(err.Error())
+		e := dingtalk.Push(err.Error(), false)
 		if e != nil {
 			log.Println(e, err)
 		}

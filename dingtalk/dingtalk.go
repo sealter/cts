@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,10 +25,14 @@ func Init(accessToken string) {
 }
 
 // Push send notification
-func Push(text string) error {
+func Push(text string, isAtAll bool) error {
 	client := &http.Client{Timeout: time.Duration(time.Second * 3)}
 
 	url := "https://oapi.dingtalk.com/robot/send?access_token=" + token
+
+	if isAtAll {
+		text += "\n"
+	}
 
 	params := []byte(`{
 		"msgtype": "text",
@@ -36,7 +41,7 @@ func Push(text string) error {
 		},
 		"at": {
 			"atMobiles": [],
-			"isAtAll": false
+			"isAtAll": ` + strconv.FormatBool(isAtAll) + `
 		}
 	}`)
 

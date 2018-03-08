@@ -388,7 +388,7 @@ func (s *Symbol) Borrow(currency string, amount float64) error {
 	msg := fmt.Sprintf("%s\n类型：%s\n品种：%s\n数量：%.4f %s",
 		time.Now().Format("2006-01-02 15:04:05"),
 		"borrow", s.Name, amount, currency)
-	err = dingtalk.Push(msg)
+	err = dingtalk.Push(msg, true)
 	if err != nil {
 		log.Println(err)
 	}
@@ -426,7 +426,7 @@ func (s *Symbol) Repay(currency string) error {
 		msg := fmt.Sprintf("%s\n类型：%s\n品种：%s\n数量：%.4f %s\n利息：%.6f %s",
 			time.Now().Format("2006-01-02 15:04:05"),
 			"repay", s.Name, v.LoanAmount, currency, v.InterestAmount, currency)
-		err = dingtalk.Push(msg)
+		err = dingtalk.Push(msg, true)
 		if err != nil {
 			log.Println(err)
 		}
@@ -487,7 +487,7 @@ func (s *Symbol) Trade(cmd string, amount float64) error {
 		time.Now().Format("2006-01-02 15:04:05"), o.ID, o.State,
 		strings.ToLower(cmd), o.Symbol, o.FieldCashAmount/o.FieldAmount, o.FieldCashAmount)
 
-	err = dingtalk.Push(msg)
+	err = dingtalk.Push(msg, true)
 	if err != nil {
 		log.Println(err)
 	}
