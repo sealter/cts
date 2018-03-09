@@ -66,7 +66,7 @@ var (
 
 // Tickers return pairs
 func Tickers() (map[string]*Pair, error) {
-	m, err := get("https://data.gate.io/api2/1/tickers")
+	m, err := get("http://data.gateio.io/api2/1/tickers")
 	if err != nil {
 		return nil, errors.Wrap(err, util.FuncName())
 	}
@@ -86,7 +86,7 @@ func Tickers() (map[string]*Pair, error) {
 
 // Ticker returns ticker for the selected symbol
 func Ticker(symbol string) (*Pair, error) {
-	m, err := get("https://data.gate.io/api2/1/ticker/" + symbol)
+	m, err := get("http://data.gateio.io/api2/1/ticker/" + symbol)
 	if err != nil {
 		return nil, errors.Wrap(err, util.FuncName())
 	}

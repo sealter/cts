@@ -173,7 +173,7 @@ func Init(apikey, secretkey string) {
 
 // Symbols return all support symbol
 func Symbols() ([]Symbol, error) {
-	m, err := req("GET", "https://api.huobi.pro/v1/common/symbols", nil)
+	m, err := req("GET", "https://api.huobipro.com/v1/common/symbols", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, util.FuncName())
 	}
@@ -188,7 +188,7 @@ func Symbols() ([]Symbol, error) {
 
 // OrderDetail return order detail by ID
 func OrderDetail(ID uint64) (*OpenOrder, error) {
-	m, err := req("GET", "https://api.huobi.pro/v1/order/orders/"+
+	m, err := req("GET", "https://api.huobipro.com/v1/order/orders/"+
 		strconv.FormatUint(ID, 10), nil)
 	if err != nil {
 		return nil, errors.Wrap(err, util.FuncName())
@@ -230,7 +230,7 @@ func NewSymbol(name string) (*Symbol, error) {
 
 // Limit return trade limit of a symbol
 func (s *Symbol) Limit() (*Limit, error) {
-	m, err := req("GET", "https://api.huobi.pro/v1/common/exchange",
+	m, err := req("GET", "https://api.huobipro.com/v1/common/exchange",
 		map[string]string{"symbol": s.Name})
 	if err != nil {
 		return nil, errors.Wrap(err, util.FuncName())
@@ -246,7 +246,7 @@ func (s *Symbol) Limit() (*Limit, error) {
 
 // Account return margin account
 func (s *Symbol) Account() (*Account, error) {
-	m, err := req("GET", "https://api.huobi.pro/v1/margin/accounts/balance",
+	m, err := req("GET", "https://api.huobipro.com/v1/margin/accounts/balance",
 		map[string]string{"symbol": s.Name})
 	if err != nil {
 		return nil, errors.Wrap(err, util.FuncName())
@@ -295,7 +295,7 @@ func (s *Symbol) Carry(currency string) (*Carry, error) {
 
 // Orders return finished orders
 func (s *Symbol) Orders() ([]Order, error) {
-	m, err := req("GET", "https://api.huobi.pro/v1/order/matchresults",
+	m, err := req("GET", "https://api.huobipro.com/v1/order/matchresults",
 		map[string]string{"symbol": s.Name})
 	if err != nil {
 		return nil, errors.Wrap(err, util.FuncName())
@@ -315,7 +315,7 @@ func (s *Symbol) OpenOrders(state string) ([]OpenOrder, error) {
 		state = "pre-submitted,submitted,partial-filled"
 	}
 
-	m, err := req("GET", "https://api.huobi.pro/v1/order/orders",
+	m, err := req("GET", "https://api.huobipro.com/v1/order/orders",
 		map[string]string{
 			"symbol": s.Name,
 			"states": state,
@@ -334,7 +334,7 @@ func (s *Symbol) OpenOrders(state string) ([]OpenOrder, error) {
 
 // BorrowOrders return borrow orders
 func (s *Symbol) BorrowOrders(state string) ([]BorrowOrder, error) {
-	m, err := req("GET", "https://api.huobi.pro/v1/margin/loan-orders",
+	m, err := req("GET", "https://api.huobipro.com/v1/margin/loan-orders",
 		map[string]string{
 			"symbol": s.Name,
 			"states": state,
@@ -375,7 +375,7 @@ func (s *Symbol) Borrow(currency string, amount float64) error {
 		return errors.Wrap(errInvalidCurrency, util.FuncName())
 	}
 
-	_, err := req("POST", "https://api.huobi.pro/v1/margin/orders",
+	_, err := req("POST", "https://api.huobipro.com/v1/margin/orders",
 		map[string]string{
 			"symbol":   s.Name,
 			"currency": currency,
@@ -413,7 +413,7 @@ func (s *Symbol) Repay(currency string) error {
 			continue
 		}
 
-		_, err := req("POST", "https://api.huobi.pro/v1/margin/orders/"+
+		_, err := req("POST", "https://api.huobipro.com/v1/margin/orders/"+
 			strconv.FormatUint(v.ID, 10)+"/repay",
 			map[string]string{
 				"amount": floor(v.LoanAmount+v.InterestAmount, 8),
@@ -467,7 +467,7 @@ func (s *Symbol) Trade(cmd string, amount float64) error {
 		return errors.Wrap(errUnkownTradeType, util.FuncName())
 	}
 
-	m, err := req("POST", "https://api.huobi.pro/v1/order/orders/place", params)
+	m, err := req("POST", "https://api.huobipro.com/v1/order/orders/place", params)
 	if err != nil {
 		return errors.Wrap(err, util.FuncName())
 	}
@@ -504,7 +504,7 @@ func (s *Symbol) CancelAll() error {
 
 	var errs []string
 	for _, v := range oos {
-		_, err := req("POST", "https://api.huobi.pro/v1/order/orders/"+
+		_, err := req("POST", "https://api.huobipro.com/v1/order/orders/"+
 			strconv.FormatUint(v.ID, 10)+"/submitcancel", nil)
 		if err != nil {
 			errs = append(errs, err.Error()+"(ID: "+strconv.FormatUint(v.ID, 10)+")")
